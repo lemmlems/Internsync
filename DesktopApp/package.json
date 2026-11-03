@@ -1,0 +1,53 @@
+{
+  "name": "internsync-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows desktop application for the InternSync OJT classroom",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "edu.qcu.internsync",
+    "productName": "InternSync",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../Backend",
+        "to": "Backend",
+        "filter": [
+          "server.js"
+        ]
+      },
+      {
+        "from": "../Frontend",
+        "to": "Frontend"
+      },
+      {
+        "from": "../Images",
+        "to": "Images"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

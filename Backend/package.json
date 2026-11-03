@@ -1,0 +1,9 @@
+{
+  "name": "internsync-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InternSync internship management portal",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

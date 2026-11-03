@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#17236b">
+    <meta name="description" content="InternSync connects QCU students, OJT advisers, and SPARDS through one internship document workspace.">
+    <title>InternSync — OJT Classroom</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="auth-screen" id="auth-screen" aria-live="polite">
+      <div class="auth-panel auth-intro">
+        <div class="auth-left-header">
+          <div class="auth-left-logo" aria-label="Quezon City University logo">
+            <img src="../Images/QCU_Logo.png" alt="QCU logo">
+          </div>
+          <span>Quezon City University</span>
+        </div>
+
+        <div class="auth-left-content">
+          <h1>Intern<span>Sync</span></h1>
+          <p>Centralized system for monitoring student internship progress and compliance at QCU.</p>
+        </div>
+      </div>
+
+      <div class="auth-panel auth-form-panel">
+        <form id="login-form" class="auth-form active" novalidate>
+          <h2>Sign In</h2>
+
+          <div class="auth-crest-wrap">
+            <div class="auth-crest">
+              <img src="../Images/InternSync_Logo.png" alt="InternSync emblem">
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <label for="login-email">Email Address</label>
+            <input id="login-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required>
+          </div>
+
+          <div class="auth-field">
+            <label for="login-password">Password</label>
+            <input id="login-password" name="password" type="password" placeholder="Enter your password" required>
+          </div>
+
+          <p class="auth-switch-text">Don’t have an account? <button type="button" class="link-button" data-auth-mode="signup">Sign Up</button></p>
+          <button class="auth-submit-button" type="submit">Sign In</button>
+          <div class="form-error" data-auth-error="login" role="alert"></div>
+        </form>
+
+        <form id="signup-form" class="auth-form" novalidate>
+          <h2>Sign Up</h2>
+          <p class="signup-subtitle">Select your role, then enter your credentials.</p>
+
+          <div class="role-selector" aria-label="Role selection">
+            <button class="role-card active" type="button" data-role-option="student">Student</button>
+            <button class="role-card" type="button" data-role-option="adviser">OJT Adviser / Dean</button>
+            <button class="role-card" type="button" data-role-option="spards">Admin</button>
+          </div>
+
+          <div class="student-id-box" id="student-id-box">
+            <label for="signup-student-id">Student ID</label>
+            <input id="signup-student-id" name="studentId" type="text" placeholder="Enter your Student ID">
+          </div>
+
+          <div class="auth-field">
+            <label for="signup-name">Full Name</label>
+            <input id="signup-name" name="name" type="text" placeholder="Enter your last name" required>
+          </div>
+
+          <div class="auth-field">
+            <label for="signup-email">Email Address</label>
+            <input id="signup-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required>
+          </div>
+
+          <div class="auth-field">
+            <label for="signup-password">Password</label>
+            <input id="signup-password" name="password" type="password" placeholder="Enter your password" required>
+          </div>
+
+          <label class="terms-check">
+            <input type="checkbox" name="terms" required>
+            <span>By signing up, you agree to our <a href="#">Terms and Conditions</a> and <a href="#">Privacy Policy</a></span>
+          </label>
+
+          <button class="auth-submit-button" type="submit">Sign Up</button>
+          <p class="auth-switch-text">Already have an account? <button type="button" class="link-button" data-auth-mode="login">Sign In</button></p>
+          <div class="form-error" data-auth-error="signup" role="alert"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="app-shell hidden" id="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#" data-page="dashboard" aria-label="InternSync dashboard">
+          <img src="../Images/InternSync_Logo.png" alt="">
+          <span>intern<span class="brand-accent">sync</span><small>QUEZON CITY UNIVERSITY</small></span>
+        </a>
+        <div class="workspace-label" id="workspace-label">STUDENT WORKSPACE</div>
+        <nav class="main-nav" aria-label="Main navigation">
+          <button class="nav-link active" data-page="classroom"><span class="nav-icon">⌂</span>My classroom</button>
+          <button class="nav-link" data-page="documents"><span class="nav-icon">▤</span>Documents<span class="nav-count" id="document-count">0</span></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="help-card">
+            <div class="help-symbol">?</div>
+            <strong id="help-title">Your OJT, in one place</strong>
+            <p id="help-copy">View requirements, submit your work, and track adviser feedback.</p>
+            <a href="mailto:internship@qcu.edu.ph">Get support <span>↗</span></a>
+          </div>
+          <button class="profile-card" id="profile-button" type="button">
+            <span class="avatar avatar-navy" id="profile-initials">SR</span>
+            <span class="profile-copy"><strong id="profile-name">Sofia Reyes</strong><small id="profile-role">QCU Student</small></span>
+            <span class="profile-more">USER</span>
+          </button>
+          <button class="logout-button" id="logout-button" type="button">Log out</button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button>
+          <div class="breadcrumbs">OJT Workspace <span>/</span> <strong id="breadcrumb-current">My classroom</strong></div>
+          <div class="topbar-actions">
+            <div class="search-box"><span>⌕</span><input type="text" placeholder="Search anything..." aria-label="Search"><kbd>⌘ K</kbd></div>
+            <label class="role-switcher"><span>ROLE</span><select id="role-select" aria-label="Switch demo role"><option value="student">Student</option><option value="adviser">OJT Adviser</option><option value="spards">SPARDS</option></select></label>
+            <button class="icon-button notification-button" aria-label="Notifications" type="button">🔔<i></i></button>
+            <button class="top-avatar" id="topbar-avatar" aria-label="Account" type="button">SR</button>
+          </div>
+        </header>
+
+        <section class="page-content" id="page-content" aria-live="polite">
+          <div class="loading-state">Getting your workspace ready…</div>
+        </section>
+      </main>
+    </div>
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+    <div class="modal-backdrop" id="modal-backdrop" hidden>
+      <section class="modal" id="workflow-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></section>
+    </div>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
