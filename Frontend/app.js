@@ -55,6 +55,14 @@ function clearSession() {
   localStorage.removeItem("internsync-demo-role");
 }
 
+function currentAccount() {
+  const profile = roleDetails[state.role] || roleDetails.student;
+  const session = getSession();
+  return session?.role === state.role
+    ? session
+    : { name: profile.name, role: state.role, title: profile.title, initials: profile.initials, email: `${state.role}@qcu.edu.ph` };
+}
+
 function setAuthRole(role) {
   if (!roleDetails[role]) return;
   state.selectedAuthRole = role;
@@ -102,9 +110,9 @@ function updateAuthView() {
 }
 
 function mockRoleUser() {
-  const session = getSession() || { role: state.role, name: roleDetails[state.role].name, initials: roleDetails[state.role].initials, title: roleDetails[state.role].title, email: `${state.role}@qcu.edu.ph` };
+  const session = currentAccount();
   const roleIds = { student: "STU-001", adviser: "ADV-001", spards: "SPARDS-001" };
-  return { ...session, userId: roleIds[session.role] || roleIds.student };
+  return { ...session, userId: roleIds[state.role] || roleIds.student };
 }
 
 function mockVisibleToRole(submission, role, userId) {
@@ -274,9 +282,9 @@ async function loadData() {
 }
 
 function updateProfile() {
-  const session = getSession();
   const profile = roleDetails[state.role] || roleDetails.student;
-  const account = session || { name: profile.name, role: state.role, title: profile.title, initials: profile.initials };
+  const account = currentAccount();
+  document.getElementById("app-shell").dataset.role = state.role;
   document.getElementById("workspace-label").textContent = profile.workspace;
   document.getElementById("profile-initials").textContent = account.initials || profile.initials;
   document.getElementById("profile-name").textContent = account.name || profile.name;
@@ -287,6 +295,10 @@ function updateProfile() {
   if (roleSelect) roleSelect.value = state.role;
   const topAvatar = document.getElementById("topbar-avatar");
   if (topAvatar) topAvatar.textContent = account.initials || profile.initials;
+  const topbarName = document.getElementById("topbar-name");
+  if (topbarName) topbarName.textContent = account.name || profile.name;
+  const topbarRole = document.getElementById("topbar-role");
+  if (topbarRole) topbarRole.textContent = account.title || profile.title;
 }
 
 function setNavigation() {
@@ -305,6 +317,7 @@ function setNavigation() {
 }
 
 function studentClassroom() {
+  const studentName = currentAccount().name.split(" ")[0];
   const assignmentCount = state.requirements.length;
   const submittedCount = state.requirements.filter((item) => submissionFor(item.id)).length;
   const cards = state.requirements.map((requirement) => {
@@ -312,13 +325,15 @@ function studentClassroom() {
     const canSubmit = !submission || submission.status === "Returned";
     return `<article class="class-card"><div class="class-card-top"><span class="class-icon">▤</span>${submission ? statusPill(submission.status) : statusPill("Not submitted")}</div><h2>${escapeHtml(requirement.title)}</h2><p class="class-instructions">${escapeHtml(requirement.description)}</p><div class="class-meta"><span>Due ${formatDate(requirement.dueDate)}</span>${submission ? `<span>Submitted ${formatDate(submission.submittedAt)}</span>` : `<span>Classroom assignment</span>`}</div>${submission?.feedback ? `<div class="feedback-note"><strong>Adviser feedback</strong><p>${escapeHtml(submission.feedback)}</p></div>` : ""}${submission?.answer && !canSubmit ? `<div class="answer-preview"><strong>Your answer</strong><p>${escapeHtml(submission.answer)}</p>${fileLink(submission)}</div>` : ""}${canSubmit ? `<form class="submission-form" data-submission-form data-document-type="assignment" data-requirement-id="${escapeHtml(requirement.id)}"><label class="field-label" for="answer-${escapeHtml(requirement.id)}">${submission ? "Update your response" : "Your response"}</label><textarea class="form-control answer-input" id="answer-${escapeHtml(requirement.id)}" name="answer" maxlength="5000" placeholder="Write an answer or add a note about your attached document...">${submission ? escapeHtml(submission.answer) : ""}</textarea><div class="upload-row"><label class="file-picker">＋ Attach document<input type="file" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"></label><span class="file-name">PDF, Word, TXT or image · max 5 MB</span></div><div class="form-error" role="alert"></div><button class="button button-primary" type="submit">${submission ? "Resubmit for review" : "Submit to adviser"} <span>↗</span></button></form>` : ""}</article>`;
   }).join("");
-  return `${heading("My classroom", "Your OJT requirements and adviser feedback, all in one place.")}<div class="welcome-banner"><div class="welcome-copy"><span class="eyebrow">QCU · ON-THE-JOB TRAINING</span><h2>Welcome back, Sofia <span>✦</span></h2><p>Keep your documents up to date and your OJT adviser in the loop.</p></div><div class="welcome-stat"><div class="spark">▤</div><div><strong>${submittedCount} / ${assignmentCount}</strong><span>requirements submitted</span></div></div></div><div class="stats-grid">${statCard("Classroom requirements", assignmentCount, "Posted by your OJT adviser", "▤")}${statCard("Submitted for review", state.submissions.filter((item) => item.documentType === "assignment" && item.status === "Pending adviser review").length, "Waiting on adviser feedback", "◷", "gold")}${statCard("Approved documents", state.submissions.filter((item) => item.documentType === "assignment" && item.status === "Approved").length, "Visible to SPARDS", "✓", "green")}${statCard("MOA / MOU status", state.submissions.find((item) => ["MOA", "MOU"].includes(item.documentType))?.status || "Not sent", "Submit signed agreements to SPARDS", "▧", "red")}</div><div class="section-title"><div><h2>Classwork</h2><p>Read the instructions, then submit your answer or document.</p></div><button class="button button-quiet" data-page="documents">MOA / MOU documents <span>↗</span></button></div><div class="classroom-grid">${cards || `<section class="panel empty-state">Your adviser has not posted any requirements yet.</section>`}</div>`;
+  const agreementStatus = state.submissions.find((item) => ["MOA", "MOU"].includes(item.documentType))?.status || "Not sent";
+  return `${heading("My classroom", "Your OJT requirements and adviser feedback, all in one place.")}<div class="welcome-banner"><div class="welcome-copy"><span class="eyebrow">QCU · ON-THE-JOB TRAINING</span><h2>Welcome back, ${escapeHtml(studentName)} <span>✦</span></h2><p>Keep your documents up to date and your OJT adviser in the loop.</p></div><div class="welcome-stat"><div class="spark">▤</div><div><strong>${submittedCount} / ${assignmentCount}</strong><span>requirements submitted</span></div></div></div><div class="stats-grid">${statCard("OJT status", "Ongoing", "Your internship is in progress", "◉", "green")}${statCard("Requirements", `${submittedCount} / ${assignmentCount}`, "Submitted to your adviser", "✓")}${statCard("MOA / MOU status", agreementStatus, "Placement document status", "▧", "red")}</div><div class="section-title"><div><h2>Classwork</h2><p>Read the instructions, then submit your answer or document.</p></div><button class="button button-quiet" data-page="documents">MOA / MOU documents <span>↗</span></button></div><div class="classroom-grid">${cards || `<section class="panel empty-state">Your adviser has not posted any requirements yet.</section>`}</div>`;
 }
 
 function adviserClassroom() {
+  const adviserName = currentAccount().name.split(" ")[0];
   const pending = state.submissions.filter((item) => item.documentType === "assignment" && item.status === "Pending adviser review");
   const reviewed = state.submissions.filter((item) => item.documentType === "assignment" && item.status !== "Pending adviser review");
-  return `${heading("Adviser classroom", "Post requirements for your students and follow their OJT progress.", `<button class="button button-primary" id="create-requirement">＋ Post a requirement</button>`)}<div class="welcome-banner"><div class="welcome-copy"><span class="eyebrow">OJT ADVISER WORKSPACE</span><h2>Your classroom is ready, Jamie <span>✦</span></h2><p>Keep instructions clear and give students timely feedback on their work.</p></div><div class="welcome-stat"><div class="spark">◷</div><div><strong>${pending.length}</strong><span>submissions to review</span></div></div></div><div class="stats-grid">${statCard("Classroom requirements", state.requirements.length, "Posted for your students", "▤")}${statCard("Waiting for review", pending.length, "Student submissions", "◷", "gold")}${statCard("Approved for SPARDS", state.submissions.filter((item) => item.documentType === "assignment" && item.status === "Approved").length, "Forwarded to SPARDS view", "✓", "green")}${statCard("Returned to students", state.submissions.filter((item) => item.status === "Returned").length, "Needs student updates", "↩", "red")}</div><div class="section-title"><div><h2>Classroom requirements</h2><p>${state.requirements.length} active requirements visible to students.</p></div><button class="text-button" data-page="review">Review submissions <span>↗</span></button></div><div class="classroom-grid">${state.requirements.map((requirement) => `<article class="class-card"><div class="class-card-top"><span class="class-icon">▤</span><span class="status-pill status-active">Due ${formatDate(requirement.dueDate)}</span></div><h2>${escapeHtml(requirement.title)}</h2><p class="class-instructions">${escapeHtml(requirement.description)}</p><div class="class-meta"><span>${state.submissions.filter((item) => item.requirementId === requirement.id).length} submissions</span><span>Posted ${formatDate(requirement.createdAt)}</span></div></article>`).join("") || `<section class="panel empty-state">Post your first classroom requirement for students.</section>`}${reviewed.length ? `<article class="class-card compact-callout"><span class="class-icon">✓</span><h2>${reviewed.length} reviewed submissions</h2><p class="class-instructions">Approved work is visible to SPARDS. Returned work is available for student resubmission.</p><button class="text-button" data-page="review">Open review queue <span>↗</span></button></article>` : ""}</div>`;
+  return `${heading("Adviser classroom", "Post requirements for your students and follow their OJT progress.", `<button class="button button-primary" id="create-requirement">＋ Post a requirement</button>`)}<div class="welcome-banner"><div class="welcome-copy"><span class="eyebrow">OJT ADVISER WORKSPACE</span><h2>Your classroom is ready, ${escapeHtml(adviserName)} <span>✦</span></h2><p>Keep instructions clear and give students timely feedback on their work.</p></div><div class="welcome-stat"><div class="spark">◷</div><div><strong>${pending.length}</strong><span>submissions to review</span></div></div></div><div class="stats-grid">${statCard("Classroom requirements", state.requirements.length, "Posted for your students", "▤")}${statCard("Waiting for review", pending.length, "Student submissions", "◷", "gold")}${statCard("Approved for SPARDS", state.submissions.filter((item) => item.documentType === "assignment" && item.status === "Approved").length, "Forwarded to SPARDS view", "✓", "green")}${statCard("Returned to students", state.submissions.filter((item) => item.status === "Returned").length, "Needs student updates", "↩", "red")}</div><div class="section-title"><div><h2>Classroom requirements</h2><p>${state.requirements.length} active requirements visible to students.</p></div><button class="text-button" data-page="review">Review submissions <span>↗</span></button></div><div class="classroom-grid">${state.requirements.map((requirement) => `<article class="class-card"><div class="class-card-top"><span class="class-icon">▤</span><span class="status-pill status-active">Due ${formatDate(requirement.dueDate)}</span></div><h2>${escapeHtml(requirement.title)}</h2><p class="class-instructions">${escapeHtml(requirement.description)}</p><div class="class-meta"><span>${state.submissions.filter((item) => item.requirementId === requirement.id).length} submissions</span><span>Posted ${formatDate(requirement.createdAt)}</span></div></article>`).join("") || `<section class="panel empty-state">Post your first classroom requirement for students.</section>`}${reviewed.length ? `<article class="class-card compact-callout"><span class="class-icon">✓</span><h2>${reviewed.length} reviewed submissions</h2><p class="class-instructions">Approved work is visible to SPARDS. Returned work is available for student resubmission.</p><button class="text-button" data-page="review">Open review queue <span>↗</span></button></article>` : ""}</div>`;
 }
 
 function spardsClassroom() {
@@ -379,8 +394,15 @@ function reviewTemplate() {
 
 function renderPage() {
   const labels = { classroom: state.role === "student" ? "My classroom" : state.role === "adviser" ? "Classroom" : "Overview", documents: state.role === "spards" ? "Documents" : "My documents", review: "Review submissions" };
+  const pageTitles = {
+    student: { classroom: "OJT Student Dashboard", documents: "My OJT Documents" },
+    adviser: { classroom: "OJT Adviser Dashboard", review: "Review Submissions" },
+    spards: { classroom: "SPARDS Dashboard", documents: "Document Review" }
+  };
   const templates = { classroom: classroomTemplate, documents: documentsTemplate, review: reviewTemplate };
-  document.getElementById("breadcrumb-current").textContent = labels[state.page] || labels.classroom;
+  const currentPageLabel = labels[state.page] || labels.classroom;
+  const workspaceHeading = document.getElementById("workspace-heading");
+  if (workspaceHeading) workspaceHeading.textContent = pageTitles[state.role]?.[state.page] || currentPageLabel;
   setNavigation();
   pageContent.innerHTML = (templates[state.page] || classroomTemplate)();
   document.getElementById("sidebar").classList.remove("open");

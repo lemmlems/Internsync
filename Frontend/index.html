@@ -98,8 +98,16 @@
       <aside class="sidebar" id="sidebar">
         <a class="brand" href="#" data-page="dashboard" aria-label="InternSync dashboard">
           <img src="../Images/InternSync_Logo.png" alt="">
-          <span>intern<span class="brand-accent">sync</span><small>QUEZON CITY UNIVERSITY</small></span>
+          <span>InternSync<small>Quezon City University</small></span>
         </a>
+        <div class="brand-wave" aria-hidden="true">
+          <svg viewBox="0 0 280 100" preserveAspectRatio="none">
+            <path fill="#101b87" d="M0 12C53 48 111 53 168 39S235 5 280 14v86H0Z"></path>
+            <path fill="#f3c800" d="M0 28c54 38 111 46 168 33S235 20 280 27v12c-45-7-55-1-112 13S54 57 0 40Z"></path>
+            <path fill="#e51937" d="M0 40c54 39 111 47 168 34s67-20 112-13v13c-45-7-55 0-112 14S54 68 0 52Z"></path>
+            <path fill="#101b87" d="M0 52c54 39 111 47 168 34s67-20 112-13v27H0Z"></path>
+          </svg>
+        </div>
         <div class="workspace-label" id="workspace-label">STUDENT WORKSPACE</div>
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link active" data-page="classroom"><span class="nav-icon">⌂</span>My classroom</button>
@@ -124,12 +132,22 @@
       <main class="main-area">
         <header class="topbar">
           <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button>
-          <div class="breadcrumbs">OJT Workspace <span>/</span> <strong id="breadcrumb-current">My classroom</strong></div>
+          <div class="workspace-heading">
+            <h1 id="workspace-heading">OJT Student Dashboard</h1>
+            <p id="workspace-subtitle">Quezon City University Internship Management System</p>
+          </div>
           <div class="topbar-actions">
             <div class="search-box"><span>⌕</span><input type="text" placeholder="Search anything..." aria-label="Search"><kbd>⌘ K</kbd></div>
-            <label class="role-switcher"><span>ROLE</span><select id="role-select" aria-label="Switch demo role"><option value="student">Student</option><option value="adviser">OJT Adviser</option><option value="spards">SPARDS</option></select></label>
-            <button class="icon-button notification-button" aria-label="Notifications" type="button">🔔<i></i></button>
-            <button class="top-avatar" id="topbar-avatar" aria-label="Account" type="button">SR</button>
+            <button class="icon-button notification-button" aria-label="Notifications" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"></path></svg>
+              <i></i>
+            </button>
+            <label class="role-switcher"><span class="sr-only">DEMO ROLE</span><select id="role-select" aria-label="Switch demo role"><option value="student">Student</option><option value="adviser">OJT Adviser</option><option value="spards">SPARDS</option></select></label>
+            <div class="top-profile">
+              <button class="top-avatar" id="topbar-avatar" aria-label="Account" type="button">SR</button>
+              <span class="top-profile-copy"><strong id="topbar-name">Sofia Reyes</strong><small id="topbar-role">QCU Student</small></span>
+              <span class="top-profile-chevron" aria-hidden="true">⌄</span>
+            </div>
           </div>
         </header>
 
