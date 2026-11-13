@@ -16,7 +16,7 @@
       <div class="auth-panel auth-intro">
         <div class="auth-left-header">
           <div class="auth-left-logo" aria-label="Quezon City University logo">
-            <img src="../Images/QCU_Logo.png" alt="QCU logo">
+            <img src="/QCU_Logo.png" alt="QCU logo">
           </div>
           <span>Quezon City University</span>
         </div>
@@ -31,9 +31,18 @@
         <form id="login-form" class="auth-form active" novalidate>
           <h2>Sign In</h2>
 
+          <div class="login-wave" aria-hidden="true">
+            <svg viewBox="0 0 430 230" preserveAspectRatio="none">
+              <path fill="#d9dae5" d="M0 0h430v105c-110 67-320 67-430 0V0Z"></path>
+              <path fill="#11177e" d="M0 105c110 67 320 67 430 0v24c-110 67-320 67-430 0v-24Z"></path>
+              <path fill="#f5df28" d="M0 129c110 67 320 67 430 0v20c-110 67-320 67-430 0v-20Z"></path>
+              <path fill="#e51937" d="M0 149c110 67 320 67 430 0v20c-110 67-320 67-430 0v-20Z"></path>
+            </svg>
+          </div>
+
           <div class="auth-crest-wrap">
             <div class="auth-crest">
-              <img src="../Images/InternSync_Logo.png" alt="InternSync emblem">
+              <img src="/InternSync_Logo.png" alt="InternSync emblem">
             </div>
           </div>
 
@@ -48,7 +57,7 @@
           </div>
 
           <p class="auth-switch-text">Don’t have an account? <button type="button" class="link-button" data-auth-mode="signup">Sign Up</button></p>
-          <button class="auth-submit-button" type="submit">Sign In</button>
+          <button class="auth-submit-button" type="submit" disabled>Sign In</button>
           <div class="form-error" data-auth-error="login" role="alert"></div>
         </form>
 
@@ -57,14 +66,14 @@
           <p class="signup-subtitle">Select your role, then enter your credentials.</p>
 
           <div class="role-selector" aria-label="Role selection">
-            <button class="role-card active" type="button" data-role-option="student">Student</button>
-            <button class="role-card" type="button" data-role-option="adviser">OJT Adviser / Dean</button>
-            <button class="role-card" type="button" data-role-option="spards">Admin</button>
+            <button class="role-card active" type="button" data-role-option="student" aria-pressed="true">Student</button>
+            <button class="role-card" type="button" data-role-option="adviser" aria-pressed="false">OJT Adviser / Dean</button>
+            <button class="role-card" type="button" data-role-option="spards" aria-pressed="false">Admin</button>
           </div>
 
           <div class="student-id-box" id="student-id-box">
-            <label for="signup-student-id">Student ID</label>
-            <input id="signup-student-id" name="studentId" type="text" placeholder="Enter your Student ID">
+            <label for="signup-student-id">ID Number</label>
+            <input id="signup-student-id" name="studentId" type="text" placeholder="Enter your Student ID" required>
           </div>
 
           <div class="auth-field">
@@ -79,7 +88,7 @@
 
           <div class="auth-field">
             <label for="signup-password">Password</label>
-            <input id="signup-password" name="password" type="password" placeholder="Enter your password" required>
+            <input id="signup-password" name="password" type="password" placeholder="Enter your password" minlength="6" required>
           </div>
 
           <label class="terms-check">
@@ -87,7 +96,7 @@
             <span>By signing up, you agree to our <a href="#">Terms and Conditions</a> and <a href="#">Privacy Policy</a></span>
           </label>
 
-          <button class="auth-submit-button" type="submit">Sign Up</button>
+          <button class="auth-submit-button" type="submit" disabled>Sign Up</button>
           <p class="auth-switch-text">Already have an account? <button type="button" class="link-button" data-auth-mode="login">Sign In</button></p>
           <div class="form-error" data-auth-error="signup" role="alert"></div>
         </form>
@@ -97,7 +106,7 @@
     <div class="app-shell hidden" id="app-shell">
       <aside class="sidebar" id="sidebar">
         <a class="brand" href="#" data-page="dashboard" aria-label="InternSync dashboard">
-          <img src="../Images/InternSync_Logo.png" alt="">
+          <img src="/InternSync_Logo.png" alt="">
           <span>InternSync<small>Quezon City University</small></span>
         </a>
         <div class="brand-wave" aria-hidden="true">
@@ -160,6 +169,6 @@
     <div class="modal-backdrop" id="modal-backdrop" hidden>
       <section class="modal" id="workflow-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"></section>
     </div>
-    <script src="./app.js" defer></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

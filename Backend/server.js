@@ -2,11 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const http = require("node:http");
-const net = require("node:net");
 
-const ROOT = path.resolve(__dirname, "..");
-const FRONTEND_DIR = path.join(ROOT, "Frontend");
-const IMAGE_DIR = path.join(ROOT, "Images");
 const DATA_DIR = process.env.INTERNSYNC_DATA_DIR
   ? path.resolve(process.env.INTERNSYNC_DATA_DIR)
   : path.join(__dirname, "data");
@@ -16,32 +12,6 @@ const DEFAULT_PORT = 3000;
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 7 * 1024 * 1024;
-
-function findAvailablePort(startPort, limit = 50) {
-  return new Promise((resolve, reject) => {
-    const tryPort = (port, attempts) => {
-      const probe = net.createServer();
-      probe.once("error", (error) => {
-        if (error && error.code === "EADDRINUSE" && attempts < limit) {
-          tryPort(port + 1, attempts + 1);
-          return;
-        }
-        reject(error);
-      });
-      probe.listen(port, "127.0.0.1", () => {
-        const address = probe.address();
-        probe.close((closeError) => {
-          if (closeError) {
-            reject(closeError);
-            return;
-          }
-          resolve(address && typeof address === "object" ? address.port : port);
-        });
-      });
-    };
-    tryPort(startPort, 0);
-  });
-}
 
 const demoUsers = {
   student: { role: "student", userId: "STU-001", name: "Sofia Reyes", initials: "SR", title: "QCU Student" },
@@ -195,21 +165,14 @@ function saveAttachment(body) {
   return { fileName, storedFile, mimeType: allowedTypes[extension][0] };
 }
 
-function serveFile(response, filePath) {
-  const contentTypes = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg" };
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      sendJson(response, 404, { error: "Resource not found." });
-      return;
-    }
-    response.writeHead(200, { "Content-Type": contentTypes[path.extname(filePath).toLowerCase()] || "application/octet-stream", "X-Content-Type-Options": "nosniff" });
-    response.end(content);
-  });
-}
-
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   const pathname = decodeURIComponent(url.pathname);
+
+  if (request.method === "GET" && pathname === "/health") {
+    sendJson(response, 200, { status: "ok" });
+    return;
+  }
 
   if (pathname.startsWith("/api/")) {
     try {
@@ -455,28 +418,13 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  let baseDir = FRONTEND_DIR;
-  let relativePath = pathname === "/" ? "index.html" : pathname.slice(1);
-  if (pathname.startsWith("/Images/")) {
-    baseDir = IMAGE_DIR;
-    relativePath = pathname.slice("/Images/".length);
-  }
-  const filePath = path.resolve(baseDir, relativePath);
-  if (!filePath.startsWith(`${baseDir}${path.sep}`) && filePath !== path.join(baseDir, "index.html")) {
-    sendJson(response, 403, { error: "Access denied." });
-    return;
-  }
-  serveFile(response, filePath);
+  sendJson(response, 404, { error: "API endpoint not found." });
 });
 
-async function startServer() {
-  const port = await findAvailablePort(PORT, 25);
-  server.listen(port, "127.0.0.1", () => {
-    console.log(`InternSync is running at http://localhost:${port}`);
-  });
-}
-
-startServer().catch((error) => {
-  console.error("Unable to start InternSync server:", error);
-  process.exit(1);
+server.on("error", (error) => {
+  console.error(`Unable to start InternSync API on 127.0.0.1:${PORT}:`, error);
+  process.exitCode = 1;
+});
+server.listen(PORT, "127.0.0.1", () => {
+  console.log(`InternSync API is running at http://127.0.0.1:${PORT}`);
 });

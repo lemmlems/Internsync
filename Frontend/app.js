@@ -73,15 +73,33 @@ function setAuthRole(role) {
   if (signup) signup.value = role;
   document.querySelectorAll(".role-pill, .role-card").forEach((button) => {
     button.classList.toggle("active", button.dataset.roleOption === role);
+    if (button.matches(".role-card")) button.setAttribute("aria-pressed", String(button.dataset.roleOption === role));
   });
   const studentIdBox = document.getElementById("student-id-box");
   if (studentIdBox) {
-    studentIdBox.style.display = role === "student" ? "grid" : "none";
+    const isStudent = role === "student";
+    studentIdBox.hidden = !isStudent;
+    const studentIdInput = studentIdBox.querySelector("input");
+    if (studentIdInput) studentIdInput.required = isStudent;
+  }
+  updateAuthSubmitButtons();
+}
+
+function updateAuthSubmitButtons() {
+  for (const formId of ["login-form", "signup-form"]) {
+    const form = document.getElementById(formId);
+    const submit = form?.querySelector('[type="submit"]');
+    if (form && submit) submit.disabled = !form.checkValidity();
   }
 }
 
+document.querySelectorAll("[data-role-option]").forEach((button) => {
+  button.addEventListener("click", () => setAuthRole(button.dataset.roleOption));
+});
+
 function setAuthMode(mode) {
   state.authMode = mode === "signup" ? "signup" : "login";
+  document.getElementById("auth-screen")?.setAttribute("data-auth-mode", state.authMode);
   document.querySelectorAll(".auth-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.authMode === state.authMode);
   });
@@ -109,144 +127,20 @@ function updateAuthView() {
   setAuthRole(state.role);
 }
 
-function mockRoleUser() {
-  const session = currentAccount();
-  const roleIds = { student: "STU-001", adviser: "ADV-001", spards: "SPARDS-001" };
-  return { ...session, userId: roleIds[state.role] || roleIds.student };
-}
-
-function mockVisibleToRole(submission, role, userId) {
-  if (role === "student") return submission.studentId === userId;
-  if (role === "adviser") return submission.documentType === "assignment";
-  return submission.status === "Approved" || ["MOA", "MOU"].includes(submission.documentType);
-}
-
-function getMockStore() {
-  const defaults = {
-    requirements: [
-      { id: "REQ-001", title: "OJT weekly reflection", description: "Share what you worked on this week, what you learned, and any questions for your adviser.", dueDate: "2026-11-06", createdAt: "2026-10-26T08:00:00.000Z", createdBy: "ADV-001" },
-      { id: "REQ-002", title: "Supervisor evaluation", description: "Submit your completed midterm supervisor evaluation for adviser review.", dueDate: "2026-11-13", createdAt: "2026-10-26T08:00:00.000Z", createdBy: "ADV-001" }
-    ],
-    submissions: [
-      { id: "SUB-001", studentId: "STU-001", studentName: "Sofia Reyes", requirementId: "REQ-001", documentType: "assignment", answer: "This week I completed the product dashboard onboarding tasks and reviewed the design handoff with my supervisor.", fileName: "", storedFile: "", mimeType: "", submittedAt: "2026-10-28T08:30:00.000Z", status: "Pending adviser review", feedback: "" },
-      { id: "SUB-002", studentId: "STU-001", studentName: "Sofia Reyes", requirementId: "REQ-002", documentType: "assignment", answer: "Please see my submitted midterm evaluation for review.", fileName: "", storedFile: "", mimeType: "", submittedAt: "2026-10-27T09:10:00.000Z", status: "Approved", feedback: "Reviewed. Thank you." },
-      { id: "SUB-003", studentId: "STU-001", studentName: "Sofia Reyes", requirementId: "", documentType: "MOU", answer: "Signed company MOU submitted for SPARDS processing.", fileName: "", storedFile: "", mimeType: "", submittedAt: "2026-10-28T09:00:00.000Z", status: "Submitted to SPARDS", feedback: "" }
-    ]
-  };
-  try {
-    const saved = JSON.parse(localStorage.getItem("internsync-mock-store") || "null");
-    if (saved && Array.isArray(saved.requirements) && Array.isArray(saved.submissions)) return saved;
-  } catch (error) {
-    // Ignore invalid local storage content and fall back to demo data.
-  }
-  localStorage.setItem("internsync-mock-store", JSON.stringify(defaults));
-  return defaults;
-}
-
-function saveMockStore(store) {
-  localStorage.setItem("internsync-mock-store", JSON.stringify(store));
-}
-
-async function mockApi(path, options = {}) {
-  const method = options.method || "GET";
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  const store = getMockStore();
-  const user = mockRoleUser();
-  const matchReview = normalized.match(/^\/classroom\/submissions\/([A-Za-z0-9-]+)\/review$/);
-  if (method === "GET" && normalized === "/classroom/requirements") return store.requirements;
-  if (method === "GET" && normalized === "/classroom/submissions") {
-    return store.submissions.filter((submission) => mockVisibleToRole(submission, user.role, user.userId));
-  }
-  if (method === "GET" && normalized === "/classroom/summary") {
-    const submissions = store.submissions.filter((submission) => mockVisibleToRole(submission, user.role, user.userId));
-    return {
-      requirements: store.requirements.length,
-      pendingAdviserReview: store.submissions.filter((item) => item.documentType === "assignment" && item.status === "Pending adviser review").length,
-      approvedForSpards: store.submissions.filter((item) => item.documentType === "assignment" && item.status === "Approved").length,
-      pendingSpardsDocuments: store.submissions.filter((item) => ["MOA", "MOU"].includes(item.documentType)).length,
-      submissions: submissions.length
-    };
-  }
-  if (method === "POST" && normalized === "/classroom/requirements") {
-    const body = typeof options.body === "string" ? JSON.parse(options.body) : {};
-    const requirement = {
-      id: `REQ-${Date.now().toString().slice(-6)}`,
-      title: String(body.title || "").trim().slice(0, 120),
-      description: String(body.description || "").trim().slice(0, 2000),
-      dueDate: String(body.dueDate || ""),
-      createdAt: new Date().toISOString(),
-      createdBy: user.userId
-    };
-    if (!requirement.title || !requirement.description || !/\d{4}-\d{2}-\d{2}/.test(requirement.dueDate)) {
-      throw new Error("Add a title, instructions under 2,000 characters, and a valid due date.");
-    }
-    store.requirements.unshift(requirement);
-    saveMockStore(store);
-    return requirement;
-  }
-  if (method === "POST" && normalized === "/classroom/submissions") {
-    const body = typeof options.body === "string" ? JSON.parse(options.body) : {};
-    const documentType = ["assignment", "MOA", "MOU"].includes(body.documentType) ? body.documentType : "";
-    const answer = String(body.answer || "").trim();
-    if (!documentType || answer.length > 5000) throw new Error("Choose an assignment, MOA, or MOU and keep the answer under 5,000 characters.");
-    const requirementId = documentType === "assignment" ? String(body.requirementId || "") : "";
-    const existing = store.submissions.find((item) => item.studentId === user.userId && item.documentType === documentType && item.requirementId === requirementId);
-    if (existing && existing.status !== "Returned" && existing.status !== "Needs revision") {
-      throw new Error("This document has already been submitted and cannot be changed while it is under review.");
-    }
-    const record = {
-      id: existing?.id || `SUB-${Date.now().toString().slice(-6)}`,
-      studentId: user.userId,
-      studentName: user.name,
-      requirementId,
-      documentType,
-      answer,
-      fileName: body.file?.name || "",
-      storedFile: "",
-      mimeType: body.file?.type || "",
-      submittedAt: new Date().toISOString(),
-      status: documentType === "assignment" ? "Pending adviser review" : "Submitted to SPARDS",
-      feedback: ""
-    };
-    if (existing) Object.assign(existing, record); else store.submissions.unshift(record);
-    saveMockStore(store);
-    return record;
-  }
-  if (matchReview && method === "PATCH") {
-    const body = typeof options.body === "string" ? JSON.parse(options.body) : {};
-    const submission = store.submissions.find((item) => item.id === matchReview[1]);
-    if (!submission) throw new Error("Submission not found.");
-    if (user.role !== "adviser") throw new Error("Students cannot review submissions.");
-    if (submission.documentType !== "assignment") throw new Error("OJT advisers can review classroom assignments only.");
-    if (!["Approved", "Returned"].includes(body.status)) throw new Error("Choose Approved or Returned.");
-    submission.status = body.status;
-    submission.feedback = String(body.feedback || "").trim().slice(0, 1000);
-    saveMockStore(store);
-    return submission;
-  }
-  if (method === "GET" && normalized === "/session") {
-    return { user, roles: Object.values(roleDetails).map((profile, index) => ({ role: Object.keys(roleDetails)[index], userId: { student: "STU-001", adviser: "ADV-001", spards: "SPARDS-001" }[Object.keys(roleDetails)[index]], name: profile.name, title: profile.title })) };
-  }
-  throw new Error("Mock endpoint not found.");
-}
-
 async function api(path, options = {}) {
+  let response;
   try {
-    const response = await fetch(`/api${path}`, {
+    response = await fetch(`/api${path}`, {
       ...options,
       headers: { "Content-Type": "application/json", "X-Demo-Role": state.role, ...(options.headers || {}) }
     });
-    const text = await response.text();
-    const data = text ? JSON.parse(text) : {};
-    if (response.ok) return data;
-    throw new Error(data.error || "Something went wrong. Please try again.");
   } catch (error) {
-    try {
-      return await mockApi(path, options);
-    } catch (mockError) {
-      throw new Error(mockError.message || "Something went wrong. Please try again.");
-    }
+    throw new Error("Cannot connect to the InternSync backend. Start it separately with `cd Backend && npm start`, then try again.");
   }
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : {};
+  if (response.ok) return data;
+  throw new Error(data.error || "Something went wrong. Please try again.");
 }
 
 function escapeHtml(value = "") {
@@ -457,11 +351,6 @@ document.addEventListener("click", async (event) => {
     setAuthMode(authMode.dataset.authMode);
     return;
   }
-  const roleOption = event.target.closest("[data-role-option]");
-  if (roleOption) {
-    setAuthRole(roleOption.dataset.roleOption);
-    return;
-  }
   if (event.target.closest("#logout-button")) {
     clearSession();
     updateAuthView();
@@ -523,6 +412,7 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.closest("#login-form, #signup-form")) updateAuthSubmitButtons();
   if (event.target.matches("[data-search]") || event.target.matches(".search-box input")) {
     const isTopbar = event.target.matches(".search-box input");
     state.search = event.target.value;
@@ -543,6 +433,7 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.closest("#login-form, #signup-form")) updateAuthSubmitButtons();
   if ((event.target.id === "login-role" || event.target.id === "signup-role") && roleDetails[event.target.value]) {
     setAuthRole(event.target.value);
     return;
@@ -567,6 +458,7 @@ document.addEventListener("submit", async (event) => {
   const form = event.target;
   if (form.id === "login-form") {
     event.preventDefault();
+    if (!form.checkValidity()) return;
     const email = form.email.value.trim();
     const password = form.password.value.trim();
     const role = state.selectedAuthRole || "student";
@@ -589,6 +481,7 @@ document.addEventListener("submit", async (event) => {
   }
   if (form.id === "signup-form") {
     event.preventDefault();
+    if (!form.checkValidity()) return;
     const name = form.name.value.trim();
     const email = form.email.value.trim();
     const password = form.password.value.trim();
@@ -626,6 +519,7 @@ document.addEventListener("submit", async (event) => {
     state.role = newAccount.role;
     localStorage.setItem("internsync-demo-role", newAccount.role);
     updateAuthView();
+    updateAuthSubmitButtons();
     updateProfile();
     await loadData();
     showToast(`Welcome, ${newAccount.name.split(" ")[0]}!`);
