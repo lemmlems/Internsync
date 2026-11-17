@@ -1,0 +1,10 @@
+export * from "./components/ui/alert";
+export * from "./components/ui/button";
+export * from "./components/ui/card";
+export * from "./components/ui/dialog";
+export * from "./components/ui/dropdown-menu";
+export * from "./components/ui/input";
+export { default as SignIn } from "./components/views/signin";
+export { default as StudentDashboard } from "./components/views/student-dashboard";
+export { default as DocumentsView } from "./components/views/documents";
+export { default as ReviewView } from "./components/views/review";

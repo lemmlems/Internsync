@@ -2,6 +2,10 @@
 
 InternSync is a QCU OJT classroom prototype for Students, OJT Advisers, and SPARDS.
 
+## Frontend structure
+
+The Vite frontend uses React and Tailwind CSS. The sign-in and sign-up UI is in `Frontend/src/components/views/signin.jsx`. Classroom, document, and adviser-review screens are React components in `classroom.jsx`, `documents.jsx`, and `review.jsx` in the same views folder. Reusable UI primitives are in `Frontend/src/components/ui/`, with exports collected in `Frontend/src/index.js`. `Frontend/index.html` remains the Vite entry page, and `Frontend/app.js` manages app state, events, and API calls.
+
 ## Run locally
 
 Requirements: Node.js 20.19+ (Node.js 22 must be 22.12+).
