@@ -1,0 +1,52 @@
+export default function SignIn() {
+  return (
+    <div className="auth-screen min-h-screen" id="auth-screen" aria-live="polite">
+      <div className="auth-panel auth-intro relative flex flex-col">
+        <div className="auth-left-header flex items-center">
+          <div className="auth-left-logo" aria-label="Quezon City University logo"><img src="/QCU_Logo.png" alt="QCU logo" /></div>
+          <span>Quezon City University</span>
+        </div>
+        <div className="auth-left-content">
+          <h1>Intern<span>Sync</span></h1>
+          <p>Centralized system for monitoring student internship progress and compliance at QCU.</p>
+        </div>
+      </div>
+      <div className="auth-panel auth-form-panel flex items-center justify-center">
+        <form id="login-form" className="auth-form active" noValidate>
+          <h2>Sign In</h2>
+          <div className="login-wave" aria-hidden="true">
+            <svg viewBox="0 0 430 230" preserveAspectRatio="none">
+              <path fill="#d9dae5" d="M0 0h430v105c-110 67-320 67-430 0V0Z" />
+              <path fill="#11177e" d="M0 105c110 67 320 67 430 0v24c-110 67-320 67-430 0v-24Z" />
+              <path fill="#f5df28" d="M0 129c110 67 320 67 430 0v20c-110 67-320 67-430 0v-20Z" />
+              <path fill="#e51937" d="M0 149c110 67 320 67 430 0v20c-110 67-320 67-430 0v-20Z" />
+            </svg>
+          </div>
+          <div className="auth-crest-wrap"><div className="auth-crest"><img src="/InternSync_Logo.png" alt="InternSync emblem" /></div></div>
+          <div className="auth-field"><label htmlFor="login-email">Email Address</label><input id="login-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
+          <div className="auth-field"><label htmlFor="login-password">Password</label><input id="login-password" name="password" type="password" placeholder="Enter your password" required /></div>
+          <p className="auth-switch-text">Don’t have an account? <button type="button" className="link-button" data-auth-mode="signup">Sign Up</button></p>
+          <button className="auth-submit-button" type="submit" disabled>Sign In</button>
+          <div className="form-error" data-auth-error="login" role="alert"></div>
+        </form>
+        <form id="signup-form" className="auth-form" noValidate>
+          <h2>Sign Up</h2>
+          <p className="signup-subtitle">Select your role, then enter your credentials.</p>
+          <div className="role-selector" aria-label="Role selection">
+            <button className="role-card active" type="button" data-role-option="student" aria-pressed="true">Student</button>
+            <button className="role-card" type="button" data-role-option="adviser" aria-pressed="false">OJT Adviser / Dean</button>
+            <button className="role-card" type="button" data-role-option="spards" aria-pressed="false">Admin</button>
+          </div>
+          <div className="student-id-box" id="student-id-box"><label htmlFor="signup-student-id">ID Number</label><input id="signup-student-id" name="studentId" type="text" placeholder="Enter your Student ID" required /></div>
+          <div className="auth-field"><label htmlFor="signup-name">Full Name</label><input id="signup-name" name="name" type="text" placeholder="Enter your last name" required /></div>
+          <div className="auth-field"><label htmlFor="signup-email">Email Address</label><input id="signup-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
+          <div className="auth-field"><label htmlFor="signup-password">Password</label><input id="signup-password" name="password" type="password" placeholder="Enter your password" minLength={6} required /></div>
+          <label className="terms-check"><input type="checkbox" name="terms" required /><span>By signing up, you agree to our <a href="#">Terms and Conditions</a> and <a href="#">Privacy Policy</a></span></label>
+          <button className="auth-submit-button" type="submit" disabled>Sign Up</button>
+          <p className="auth-switch-text">Already have an account? <button type="button" className="link-button" data-auth-mode="login">Sign In</button></p>
+          <div className="form-error" data-auth-error="signup" role="alert"></div>
+        </form>
+      </div>
+    </div>
+  );
+}
