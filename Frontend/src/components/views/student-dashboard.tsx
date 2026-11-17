@@ -14,6 +14,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import Requirements from "@/components/views/requirements";
 import StudentHoursSummary, {
   ojtCompletion,
   ojtLoggedHours,
@@ -254,30 +255,7 @@ function StudentSection({ page, state, formatDate, requirementFor, submissionFor
   if (page === "ojt-hours") return <StudentHoursSummary />;
 
   if (page === "requirements-progress") {
-    return (
-      <div className="grid gap-4">
-        <StudentPageHeader eyebrow="STUDENT WORKSPACE" title={heading} description="Track each classroom requirement and see what still needs your attention." />
-        <div className="grid gap-3">
-          {requirements.map((requirement: any) => {
-            const submission = submissionFor(requirement.id);
-            return (
-              <SectionCard className="flex flex-col justify-between gap-4 sm:flex-row" key={requirement.id}>
-                <div className="min-w-0">
-                  <StatusBadge variant="neutral">{requirement.id}</StatusBadge>
-                  <h3 className="mt-2 text-base font-bold text-text">{requirement.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">{requirement.description}</p>
-                  <p className="mt-2 text-xs text-muted">Due {formatDate(requirement.dueDate)}</p>
-                </div>
-                <StatusBadge className="self-start" variant={statusVariant(submission?.status || "Not submitted")}>
-                  {submission?.status || "Not submitted"}
-                </StatusBadge>
-              </SectionCard>
-            );
-          })}
-          {requirements.length === 0 && <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">There are no classroom requirements yet.</p>}
-        </div>
-      </div>
-    );
+    return <Requirements />;
   }
 
   if (page === "partner-companies") {

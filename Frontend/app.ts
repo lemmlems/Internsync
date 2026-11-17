@@ -55,20 +55,23 @@ function saveAccounts(accounts) {
 
 function getSession() {
   try {
-    return JSON.parse(localStorage.getItem("internsync-auth-session") || "null");
+    return JSON.parse(sessionStorage.getItem("internsync-auth-session") || "null");
   } catch (error) {
     return null;
   }
 }
 
 function saveSession(session) {
-  localStorage.setItem("internsync-auth-session", JSON.stringify(session));
+  sessionStorage.setItem("internsync-auth-session", JSON.stringify(session));
 }
 
 function clearSession() {
+  sessionStorage.removeItem("internsync-auth-session");
   localStorage.removeItem("internsync-auth-session");
   localStorage.removeItem("internsync-demo-role");
 }
+
+localStorage.removeItem("internsync-auth-session");
 
 function currentAccount() {
   const profile = roleDetails[state.role] || roleDetails.student;
