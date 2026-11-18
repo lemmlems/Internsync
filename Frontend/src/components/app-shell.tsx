@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Sidebar from "./shell/sidebar";
 import Topbar from "./shell/topbar";
+import ToastViewport from "./toast-viewport";
 
 export default function AppShell() {
   return (
@@ -15,7 +16,7 @@ export default function AppShell() {
         </main>
       </div>
 
-      <div className="toast-region fixed right-4 top-4 z-[70] grid gap-2" id="toast-region" aria-live="polite" />
+      <ToastViewport />
       <div className="modal-backdrop fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 p-4" id="modal-backdrop" hidden>
         <section
           className="modal max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-card p-6 text-text shadow-xl"

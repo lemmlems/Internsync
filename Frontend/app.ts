@@ -10,6 +10,7 @@ import ReviewView from "./src/components/views/review";
 import { HOME_PAGE_BY_ROLE, NAV_ITEMS_BY_ROLE } from "./src/lib/nav-config";
 import { formatDate } from "./src/lib/formatters";
 import { getInitials } from "./src/lib/helpers";
+import { toast } from "./src/lib/toast";
 import { isRequired, isValidStudentId, validateFileSize, validateFileType, validatePassword } from "./src/lib/validations";
 
 const roleDetails = {
@@ -301,15 +302,6 @@ function renderPage() {
   if (sidebar) setSidebarOpen(false);
 }
 
-function showToast(message) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.textContent = message;
-  const toastRegion = document.getElementById("toast-region");
-  if (toastRegion) toastRegion.append(toast);
-  window.setTimeout(() => toast.remove(), 3200);
-}
-
 function openRequirementModal() {
   const backdrop = document.getElementById("modal-backdrop");
   const workflowModal = document.getElementById("workflow-modal");
@@ -361,7 +353,7 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("#logout-button")) {
     clearSession();
     updateAuthView();
-    showToast("You have been logged out.");
+    toast.success("You have been logged out.");
     return;
   }
   const navigation = event.target.closest("[data-page]");
@@ -390,7 +382,7 @@ document.addEventListener("click", async (event) => {
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
-      showToast(error.message);
+      toast.error(error.message);
     }
     return;
   }
@@ -415,10 +407,10 @@ document.addEventListener("click", async (event) => {
     try {
       await api(`/classroom/submissions/${encodeURIComponent(id)}/review`, { method: "PATCH", body: JSON.stringify({ status: reviewButton.dataset.review, feedback }) });
       await refreshData();
-      showToast(reviewButton.dataset.review === "Approved" ? "Submission approved and shared with SPARDS." : "Submission returned to the student with feedback.");
+      toast.success(reviewButton.dataset.review === "Approved" ? "Submission approved and shared with SPARDS." : "Submission returned to the student with feedback.");
     } catch (error) {
       reviewButton.disabled = false;
-      showToast(error.message);
+      toast.error(error.message);
     }
   }
 });
@@ -458,7 +450,7 @@ document.addEventListener("change", (event) => {
   localStorage.setItem("internsync-demo-role", state.role);
   updateProfile();
   renderPage();
-  loadData().catch((error) => showToast(error.message));
+  loadData().catch((error) => toast.error(error.message));
 });
 
 document.addEventListener("change", (event) => {
@@ -491,8 +483,8 @@ document.addEventListener("submit", async (event) => {
     updateAuthView();
     updateProfile();
     renderPage();
-    await loadData().catch((loadError) => showToast(loadError.message));
-    showToast(`Welcome back, ${account.name.split(" ")[0]}.`);
+    await loadData().catch((loadError) => toast.error(loadError.message));
+    toast.success(`Welcome back, ${account.name.split(" ")[0]}.`);
     return;
   }
   if (form.id === "signup-form") {
@@ -540,8 +532,8 @@ document.addEventListener("submit", async (event) => {
     updateAuthSubmitButtons();
     updateProfile();
     renderPage();
-    await loadData().catch((loadError) => showToast(loadError.message));
-    showToast(`Welcome, ${newAccount.name.split(" ")[0]}!`);
+    await loadData().catch((loadError) => toast.error(loadError.message));
+    toast.success(`Welcome, ${newAccount.name.split(" ")[0]}!`);
     return;
   }
   if (form.id === "requirement-form") {
@@ -555,7 +547,7 @@ document.addEventListener("submit", async (event) => {
       await api("/classroom/requirements", { method: "POST", body: JSON.stringify({ title: values.get("title"), description: values.get("description"), dueDate: values.get("dueDate") }) });
       closeModal();
       await refreshData();
-      showToast("Requirement posted successfully.");
+      toast.success("Requirement posted successfully.");
     } catch (exception) {
       error.textContent = exception.message;
       submit.disabled = false;
@@ -581,7 +573,7 @@ document.addEventListener("submit", async (event) => {
     const endpoint = "/classroom/submissions";
     await api(endpoint, { method: "POST", body: JSON.stringify(payload) });
     await refreshData();
-    showToast(documentType === "assignment" ? "Your work was submitted to your OJT adviser." : `${documentType} submitted to SPARDS.`);
+    toast.success(documentType === "assignment" ? "Your work was submitted to your OJT adviser." : `${documentType} submitted to SPARDS.`);
   } catch (exception) {
     error.textContent = exception.message;
     submit.disabled = false;
@@ -602,5 +594,5 @@ updateAuthView();
 if (getSession()) {
   updateProfile();
   renderPage();
-  loadData().catch((error) => showToast(error.message));
+  loadData().catch((error) => toast.error(error.message));
 }
