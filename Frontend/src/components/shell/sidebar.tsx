@@ -15,8 +15,9 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="fixed inset-y-0 left-0 z-40 [transform:translateX(-100%)] flex w-[250px] flex-col overflow-y-auto bg-[#11177f] text-white shadow-[0_0_20px_rgba(15,28,109,0.15)] [&.open]:[transform:translateX(0)] transition-none lg:[transform:translateX(0)]"
+      className="fixed inset-y-0 left-0 z-40 [transform:translateX(-100%)] flex w-[250px] flex-col overflow-y-auto bg-[#11177f] text-white shadow-[0_0_20px_rgba(15,28,109,0.15)] [&.open]:[transform:translateX(0)] transition-transform duration-200 lg:[transform:translateX(0)]"
       id="sidebar"
+      aria-hidden="true"
     >
       <img
         className="pointer-events-none absolute bottom-16 right-[-48px] z-0 size-[200px] opacity-[0.06]"

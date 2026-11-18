@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, ChevronDown, LogOut, UserRound } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,6 +95,16 @@ export default function Topbar() {
 
   return (
     <header className="topbar sticky top-0 z-30 flex h-[76px] items-center justify-between gap-3 border-b border-[#dfe5ef] bg-[#f6f7fb] px-4 md:px-6">
+      <button
+        className="mobile-menu grid size-9 shrink-0 place-items-center rounded-lg border-0 bg-transparent text-[#12177f] shadow-none hover:bg-[#eef0f8]"
+        id="mobile-menu"
+        aria-label="Open navigation menu"
+        aria-controls="sidebar"
+        aria-expanded="false"
+        type="button"
+      >
+        <Menu size={20} aria-hidden="true" />
+      </button>
       <div className="workspace-heading min-w-0 flex-1">
         <h1 className="m-0 truncate font-heading text-[18px] font-extrabold leading-none tracking-[-0.03em] text-[#1d2438] md:text-[20px]" id="workspace-heading">
           OJT Student Dashboard
