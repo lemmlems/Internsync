@@ -11,23 +11,22 @@ export default function SignIn() {
           <p>Centralized system for monitoring student internship progress and compliance at QCU.</p>
         </div>
       </div>
-      <div className="auth-panel auth-form-panel flex items-center justify-center">
+      <div className="auth-panel auth-form-panel">
         <form id="login-form" className="auth-form active" noValidate>
-          <h2>Sign In</h2>
-          <div className="login-wave" aria-hidden="true">
-            <svg viewBox="0 0 430 230" preserveAspectRatio="none">
-              <path fill="#d9dae5" d="M0 0h430v105c-110 67-320 67-430 0V0Z" />
-              <path fill="#11177e" d="M0 105c110 67 320 67 430 0v24c-110 67-320 67-430 0v-24Z" />
-              <path fill="#f5df28" d="M0 129c110 67 320 67 430 0v20c-110 67-320 67-430 0v-20Z" />
-              <path fill="#e51937" d="M0 149c110 67 320 67 430 0v20c-110 67-320 67-430 0v-20Z" />
-            </svg>
+          <div className="login-card-top">
+            <h2>Sign In</h2>
+            <div className="auth-crest-wrap"><div className="auth-crest"><img src="/InternSync_Logo.png" alt="InternSync emblem" /></div></div>
           </div>
-          <div className="auth-crest-wrap"><div className="auth-crest"><img src="/InternSync_Logo.png" alt="InternSync emblem" /></div></div>
-          <div className="auth-field"><label htmlFor="login-email">Email Address</label><input id="login-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
-          <div className="auth-field"><label htmlFor="login-password">Password</label><input id="login-password" name="password" type="password" placeholder="Enter your password" required /></div>
-          <p className="auth-switch-text">Don’t have an account? <button type="button" className="link-button" data-auth-mode="signup">Sign Up</button></p>
-          <button className="auth-submit-button" type="submit" disabled>Sign In</button>
-          <div className="form-error" data-auth-error="login" role="alert"></div>
+          <div className="login-card-divider relative w-full overflow-hidden" aria-hidden="true">
+            <img className="login-card-divider-art w-full" src="/Sidebar%20Art.svg" alt="" />
+          </div>
+          <div className="login-card-bottom">
+            <div className="auth-field"><label htmlFor="login-email">Email Address</label><input id="login-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
+            <div className="auth-field"><label htmlFor="login-password">Password</label><input id="login-password" name="password" type="password" placeholder="Enter your password" required /></div>
+            <p className="auth-switch-text">Don't have an account? <button type="button" className="link-button" data-auth-mode="signup">Sign Up</button></p>
+            <button className="auth-submit-button" type="submit" disabled>Sign In</button>
+            <div className="form-error" data-auth-error="login" role="alert"></div>
+          </div>
         </form>
         <form id="signup-form" className="auth-form" noValidate>
           <h2>Sign Up</h2>
@@ -37,7 +36,23 @@ export default function SignIn() {
             <button className="role-card" type="button" data-role-option="adviser" aria-pressed="false">OJT Adviser / Dean</button>
             <button className="role-card" type="button" data-role-option="spards" aria-pressed="false">Admin</button>
           </div>
-          <div className="student-id-box" id="student-id-box"><label htmlFor="signup-student-id">ID Number</label><input id="signup-student-id" name="studentId" type="text" placeholder="Enter your Student ID" required /></div>
+          <div className="student-id-box" id="student-id-box"><label htmlFor="signup-student-id">ID Number</label><input id="signup-student-id" name="studentNumber" type="text" placeholder="e.g. 23-1924" inputMode="numeric" autoComplete="off" maxLength={7} pattern="[0-9]{2}-[0-9]{4}" aria-describedby="student-id-hint" required /><span className="student-id-hint" id="student-id-hint">Enter 2 digits, then 4 digits.</span></div>
+          <div className="student-academic-fields" id="student-academic-fields">
+            <div className="auth-field catalog-field">
+              <label htmlFor="signup-college">Department / College</label>
+              <input id="signup-college" type="text" placeholder="Select Department / College" readOnly aria-haspopup="listbox" aria-expanded="false" aria-controls="college-options" data-catalog-dropdown="college" />
+              <div id="college-options" className="catalog-options" role="listbox" aria-label="Department / College options" hidden />
+            </div>
+            <div className="auth-field catalog-field">
+              <label htmlFor="signup-program">Program</label>
+              <input id="signup-program" type="text" placeholder="Select a college first" readOnly aria-haspopup="listbox" aria-expanded="false" aria-controls="program-options" data-catalog-dropdown="program" disabled />
+              <div id="program-options" className="catalog-options" role="listbox" aria-label="Program options" hidden />
+            </div>
+            <div className="auth-field">
+              <label htmlFor="signup-year-level">Year Level</label>
+              <input id="signup-year-level" name="yearLevel" type="text" placeholder="Selected automatically" disabled />
+            </div>
+          </div>
           <div className="auth-field"><label htmlFor="signup-name">Full Name</label><input id="signup-name" name="name" type="text" placeholder="Enter your last name" required /></div>
           <div className="auth-field"><label htmlFor="signup-email">Email Address</label><input id="signup-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
           <div className="auth-field"><label htmlFor="signup-password">Password</label><input id="signup-password" name="password" type="password" placeholder="Enter your password" minLength={6} required /></div>

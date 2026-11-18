@@ -67,13 +67,14 @@ export function validateName(value: string | null | undefined): ValidationResult
     : { valid: false, message: "Enter a name using letters, spaces, apostrophes, or hyphens." };
 }
 
-// The current project requires a student ID but does not define a format.
 export function isValidStudentId(value: string | null | undefined): boolean {
-  return isRequired(value);
+  return typeof value === "string" && /^\d{2}-\d{4}$/.test(value);
 }
 
 export function validateStudentId(value: string | null | undefined): ValidationResult {
-  return isValidStudentId(value) ? { valid: true } : { valid: false, message: "Student ID is required." };
+  return isValidStudentId(value)
+    ? { valid: true }
+    : { valid: false, message: "Enter a student ID in the format 23-1924." };
 }
 
 function fileNameFrom(value: File | string | null | undefined): string {

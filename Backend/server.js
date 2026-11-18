@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const http = require("node:http");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const DATA_DIR = process.env.INTERNSYNC_DATA_DIR
   ? path.resolve(process.env.INTERNSYNC_DATA_DIR)
@@ -12,6 +13,7 @@ const DEFAULT_PORT = 3000;
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 7 * 1024 * 1024;
+let prismaClient;
 
 const demoUsers = {
   student: { role: "student", userId: "STU-001", name: "Sofia Reyes", initials: "SR", title: "QCU Student" },
@@ -74,6 +76,17 @@ function readStore() {
 
 function saveStore(store) {
   fs.writeFileSync(STORE_FILE, `${JSON.stringify(store, null, 2)}\n`);
+}
+
+function getPrismaClient() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
+  if (!prismaClient) {
+    const { createPrismaClient } = require("./prisma-client");
+    prismaClient = createPrismaClient();
+  }
+  return prismaClient;
 }
 
 function sendJson(response, status, value) {
@@ -165,12 +178,439 @@ function saveAttachment(body) {
   return { fileName, storedFile, mimeType: allowedTypes[extension][0] };
 }
 
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password, salt, 64);
+  return `${salt.toString("hex")}:${hash.toString("hex")}`;
+}
+
+function verifyPassword(password, passwordHash) {
+  const [saltHex, hashHex] = passwordHash.split(":");
+  if (!/^[a-f0-9]{32}$/i.test(saltHex || "") || !/^[a-f0-9]{128}$/i.test(hashHex || "")) return false;
+  const expectedHash = Buffer.from(hashHex, "hex");
+  const actualHash = crypto.scryptSync(password, Buffer.from(saltHex, "hex"), expectedHash.length);
+  return crypto.timingSafeEqual(actualHash, expectedHash);
+}
+
+function hashSessionToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function formatStudentName(user) {
+  const middleInitial = user.middleName?.trim().replace(/\.$/, "").charAt(0);
+  return [user.firstName, middleInitial ? `${middleInitial.toLocaleUpperCase()}.` : "", user.lastName]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function normalizeLocationName(name) {
+  return name.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+}
+
+function validateProfileLicenses(value) {
+  if (!Array.isArray(value) || value.length > 100) return null;
+  const licenses = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    const issuer = typeof item.issuer === "string" ? item.issuer.trim() : "";
+    const issueDate = typeof item.issueDate === "string" ? item.issueDate.trim() : "";
+    const expiryDate = typeof item.expiryDate === "string" ? item.expiryDate.trim() : "";
+    const credentialId = typeof item.credentialId === "string" ? item.credentialId.trim() : "";
+    const credentialUrl = typeof item.credentialUrl === "string" ? item.credentialUrl.trim() : "";
+    const description = typeof item.description === "string" ? item.description.trim() : "";
+    const skills = validateProfileSkills(item.skills === undefined ? [] : item.skills);
+    if (!name || name.length > 200 || !issuer || issuer.length > 200
+      || issueDate && !/^\d{4}-(0[1-9]|1[0-2])$/.test(issueDate)
+      || expiryDate && !/^\d{4}-(0[1-9]|1[0-2])$/.test(expiryDate)
+      || credentialId.length > 80 || credentialUrl.length > 2048 || description.length > 1000
+      || !skills) return null;
+    if (credentialUrl) {
+      try {
+        const url = new URL(credentialUrl);
+        if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+      } catch {
+        return null;
+      }
+    }
+    licenses.push({
+      id: typeof item.id === "string" && item.id.length <= 100 ? item.id : crypto.randomUUID(),
+      name,
+      issuer,
+      issueDate,
+      expiryDate,
+      credentialId,
+      credentialUrl,
+      description,
+      skills
+    });
+  }
+  return licenses;
+}
+
+function validateProfileSkills(value) {
+  if (!Array.isArray(value) || value.length > 100) return null;
+  const skills = [];
+  const normalizedSkills = new Set();
+  for (const item of value) {
+    if (typeof item !== "string") return null;
+    const skill = item.trim();
+    const normalized = skill.toLocaleLowerCase("en-US");
+    if (!skill || skill.length > 100 || normalizedSkills.has(normalized)) return null;
+    normalizedSkills.add(normalized);
+    skills.push(skill);
+  }
+  return skills;
+}
+
+function studentProfileResponse(user) {
+  const student = user.studentProfile;
+  const program = student.program;
+  return {
+    id: user.id,
+    email: user.email,
+    role: "student",
+    firstName: user.firstName,
+    middleName: user.middleName || "",
+    lastName: user.lastName,
+    name: formatStudentName(user),
+    studentNumber: student.studentNumber,
+    programId: program.id,
+    programName: program.name,
+    collegeId: program.college.id,
+    collegeName: program.college.name,
+    yearLevel: program.college.ojtYearLevel === "THIRD" ? "3rd Year" : "4th Year",
+    phone: student.contactNumber || "",
+    streetAddress: student.streetAddress || "",
+    barangay: student.barangay || "",
+    city: student.city || "",
+    postalCode: student.postalCode || "",
+    partnerCompany: student.partnerCompany || "",
+    ojtPeriod: student.ojtPeriod || "",
+    licenses: JSON.parse(student.licensesJson || "[]"),
+    skills: JSON.parse(student.skillsJson || "[]")
+  };
+}
+
+async function findAuthenticatedStudent(request) {
+  const authorization = request.headers.authorization;
+  const match = typeof authorization === "string" ? authorization.match(/^Bearer ([a-f0-9]{64})$/i) : null;
+  if (!match) return null;
+
+  const session = await getPrismaClient().session.findUnique({
+    where: { tokenHash: hashSessionToken(match[1]) },
+    include: {
+      user: {
+        include: {
+          studentProfile: {
+            include: { program: { include: { college: true } } }
+          }
+        }
+      }
+    }
+  });
+  if (!session || session.revokedAt || session.expiresAt <= new Date() || !session.user.isActive
+    || session.user.role !== "STUDENT" || !session.user.studentProfile) return null;
+  return session;
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   const pathname = decodeURIComponent(url.pathname);
 
   if (request.method === "GET" && pathname === "/health") {
     sendJson(response, 200, { status: "ok" });
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/auth/student-signup") {
+    try {
+      const body = await readBody(request);
+      const studentNumber = typeof body.studentNumber === "string" ? body.studentNumber.trim() : "";
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      const programId = typeof body.programId === "string" ? body.programId : "";
+      if (!/^\d{2}-\d{4}$/.test(studentNumber)) {
+        sendJson(response, 400, { error: "Enter a student ID in the format 23-1924." });
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254) {
+        sendJson(response, 400, { error: "Enter a valid email address." });
+        return;
+      }
+      if (!name || name.length > 200 || password.trim().length < 6 || password.length > 128 || !programId) {
+        sendJson(response, 400, { error: "Provide your name, a program, and a password of at least 6 characters." });
+        return;
+      }
+
+      const prisma = getPrismaClient();
+      const [existingUser, existingStudent, program] = await Promise.all([
+        prisma.user.findUnique({ where: { email }, select: { id: true } }),
+        prisma.studentProfile.findUnique({ where: { studentNumber }, select: { userId: true } }),
+        prisma.program.findUnique({ where: { id: programId }, select: { id: true } })
+      ]);
+      if (existingUser) {
+        sendJson(response, 409, { error: "An account with this email already exists." });
+        return;
+      }
+      if (existingStudent) {
+        sendJson(response, 409, { error: "This student ID is already registered." });
+        return;
+      }
+      if (!program) {
+        sendJson(response, 400, { error: "Select a valid program from the college catalog." });
+        return;
+      }
+
+      const nameParts = name.split(/\s+/);
+      const firstName = nameParts.shift();
+      const lastName = nameParts.pop() || firstName;
+      const middleName = nameParts.join(" ") || null;
+      const accessToken = crypto.randomBytes(32).toString("hex");
+      const user = await prisma.user.create({
+        data: {
+          email,
+          passwordHash: hashPassword(password),
+          firstName,
+          middleName,
+          lastName,
+          role: "STUDENT",
+          studentProfile: {
+            create: {
+              studentNumber,
+              program: { connect: { id: program.id } }
+            }
+          },
+          sessions: {
+            create: {
+              tokenHash: hashSessionToken(accessToken),
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            }
+          }
+        },
+        include: {
+          studentProfile: { include: { program: { include: { college: true } } } }
+        }
+      });
+      sendJson(response, 201, { accessToken, profile: studentProfileResponse(user) });
+    } catch (error) {
+      if (error.code === "P2002") {
+        sendJson(response, 409, { error: "This email or student ID is already registered." });
+        return;
+      }
+      console.error("Student sign-up failed:", error);
+      sendJson(response, 500, { error: "Student account could not be created." });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/auth/student-login") {
+    try {
+      const body = await readBody(request);
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      if (!email || !password || password.length > 128) {
+        sendJson(response, 400, { error: "Enter your email address and password." });
+        return;
+      }
+
+      const user = await getPrismaClient().user.findUnique({
+        where: { email },
+        include: { studentProfile: { include: { program: { include: { college: true } } } } }
+      });
+      if (!user || !user.isActive || user.role !== "STUDENT" || !user.studentProfile || !verifyPassword(password, user.passwordHash)) {
+        sendJson(response, 401, { error: "Invalid email or password." });
+        return;
+      }
+
+      const accessToken = crypto.randomBytes(32).toString("hex");
+      await getPrismaClient().session.create({
+        data: {
+          tokenHash: hashSessionToken(accessToken),
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        }
+      });
+      sendJson(response, 200, { accessToken, profile: studentProfileResponse(user) });
+    } catch (error) {
+      console.error("Student sign-in failed:", error);
+      sendJson(response, 500, { error: "Student sign-in could not be completed." });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/auth/logout") {
+    try {
+      const session = await findAuthenticatedStudent(request);
+      if (!session) {
+        sendJson(response, 401, { error: "Your student session is invalid or has expired." });
+        return;
+      }
+      await getPrismaClient().session.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date() }
+      });
+      sendJson(response, 200, { status: "logged_out" });
+    } catch (error) {
+      console.error("Student logout failed:", error);
+      sendJson(response, 500, { error: "Student logout could not be completed." });
+    }
+    return;
+  }
+
+  if (pathname === "/api/students/profile") {
+    try {
+      const session = await findAuthenticatedStudent(request);
+      if (!session) {
+        sendJson(response, 401, { error: "Your student session is invalid or has expired." });
+        return;
+      }
+      const prisma = getPrismaClient();
+      if (request.method === "GET") {
+        sendJson(response, 200, studentProfileResponse(session.user));
+        return;
+      }
+      if (request.method === "PUT") {
+        const body = await readBody(request);
+        const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
+        const middleName = typeof body.middleName === "string" ? body.middleName.trim() : "";
+        const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+        const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+        const studentNumber = typeof body.studentNumber === "string" ? body.studentNumber.trim() : "";
+        const collegeName = typeof body.collegeName === "string" ? body.collegeName.trim() : "";
+        const programName = typeof body.programName === "string" ? body.programName.trim() : "";
+        const contactNumber = typeof body.phone === "string" ? body.phone.trim() : "";
+        const streetAddress = typeof body.streetAddress === "string" ? body.streetAddress.trim() : "";
+        const barangay = typeof body.barangay === "string" ? body.barangay.trim() : "";
+        const city = typeof body.city === "string" ? body.city.trim() : "";
+        const postalCode = typeof body.postalCode === "string" ? body.postalCode.trim() : "";
+        const partnerCompany = typeof body.partnerCompany === "string" ? body.partnerCompany.trim() : "";
+        const ojtPeriod = typeof body.ojtPeriod === "string" ? body.ojtPeriod.trim() : "";
+        const licenses = validateProfileLicenses(body.licenses);
+        const skills = validateProfileSkills(body.skills);
+        if (!firstName || !lastName || firstName.length > 100 || middleName.length > 100 || lastName.length > 100
+          || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 254
+          || !/^\d{2}-\d{4}$/.test(studentNumber) || !collegeName || !programName
+          || !/^\+63\d{10}$/.test(contactNumber) || !streetAddress || !barangay || !city
+          || contactNumber.length > 40 || streetAddress.length > 200 || barangay.length > 100
+          || city.length > 100 || postalCode.length > 20
+          || partnerCompany.length > 200 || ojtPeriod.length > 100 || !licenses || !skills) {
+          sendJson(response, 400, { error: "Check the required profile fields and their lengths, then try again." });
+          return;
+        }
+
+        const program = await prisma.program.findFirst({
+          where: { name: programName, college: { name: collegeName } },
+          select: { id: true }
+        });
+        if (!program) {
+          sendJson(response, 400, { error: "Select a valid program for the chosen college." });
+          return;
+        }
+
+        const normalizedCityName = normalizeLocationName(city);
+        const normalizedBarangayName = normalizeLocationName(barangay);
+        const updatedUser = await prisma.$transaction(async (transaction) => {
+          const cityRecord = await transaction.city.upsert({
+            where: { normalizedName: normalizedCityName },
+            update: {},
+            create: { name: city.replace(/\s+/g, " "), normalizedName: normalizedCityName }
+          });
+          const barangayRecord = await transaction.barangay.upsert({
+            where: { cityId_normalizedName: { cityId: cityRecord.id, normalizedName: normalizedBarangayName } },
+            update: {},
+            create: {
+              name: barangay.replace(/\s+/g, " "),
+              normalizedName: normalizedBarangayName,
+              cityId: cityRecord.id
+            }
+          });
+          return transaction.user.update({
+            where: { id: session.userId },
+            data: {
+              email,
+              firstName,
+              middleName: middleName || null,
+              lastName,
+              studentProfile: {
+                update: {
+                  studentNumber,
+                  programId: program.id,
+                  contactNumber: contactNumber || null,
+                  streetAddress: streetAddress || null,
+                  barangay: barangayRecord.name,
+                  city: cityRecord.name,
+                  postalCode: postalCode || null,
+                  partnerCompany: partnerCompany || null,
+                  ojtPeriod: ojtPeriod || null,
+                  licensesJson: JSON.stringify(licenses),
+                  skillsJson: JSON.stringify(skills)
+                }
+              }
+            },
+            include: { studentProfile: { include: { program: { include: { college: true } } } } }
+          });
+        });
+        sendJson(response, 200, studentProfileResponse(updatedUser));
+        return;
+      }
+      sendJson(response, 405, { error: "Method not allowed." });
+    } catch (error) {
+      if (error.code === "P2002") {
+        sendJson(response, 409, { error: "That email or student number is already in use." });
+        return;
+      }
+      console.error("Student profile request failed:", error);
+      sendJson(response, 500, { error: "Student profile could not be saved." });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/catalog/colleges") {
+    try {
+      const colleges = await getPrismaClient().college.findMany({
+        select: {
+          id: true,
+          name: true,
+          ojtYearLevel: true,
+          programs: {
+            select: { id: true, name: true },
+            orderBy: { sortOrder: "asc" }
+          }
+        },
+        orderBy: { sortOrder: "asc" }
+      });
+      sendJson(response, 200, { colleges });
+    } catch (error) {
+      console.error("Academic catalog request failed:", error);
+      sendJson(response, 503, {
+        error: process.env.DATABASE_URL
+          ? "The academic catalog is unavailable. Apply the Prisma migration and seed the catalog, then try again."
+          : "DATABASE_URL is not configured. Set it in Backend/.env to load the academic catalog."
+      });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/catalog/locations") {
+    try {
+      const cities = await getPrismaClient().city.findMany({
+        include: {
+          barangays: {
+            select: { id: true, name: true },
+            orderBy: { name: "asc" }
+          }
+        },
+        orderBy: { name: "asc" }
+      });
+      sendJson(response, 200, {
+        cities: cities.map(({ id, name, barangays }) => ({ id, name, barangays }))
+      });
+    } catch (error) {
+      console.error("Location catalog request failed:", error);
+      sendJson(response, 503, { error: "The city and barangay catalog is unavailable." });
+    }
     return;
   }
 

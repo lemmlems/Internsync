@@ -36,7 +36,12 @@ const state = {
   filter: "All",
   search: "",
   authMode: "login",
-  selectedAuthRole: localStorage.getItem("internsync-auth-role") || "student"
+  selectedAuthRole: localStorage.getItem("internsync-auth-role") || "student",
+  colleges: [],
+  collegeCatalogLoaded: false,
+  selectedCollegeId: "",
+  selectedProgramId: "",
+  openCatalogDropdown: ""
 };
 const pageContent = document.getElementById("page-content");
 const appRoots = window.__internsyncReactRoots || (window.__internsyncReactRoots = {});
@@ -80,9 +85,18 @@ localStorage.removeItem("internsync-auth-session");
 function currentAccount() {
   const profile = roleDetails[state.role] || roleDetails.student;
   const session = getSession();
-  return session?.role === state.role
-    ? session
-    : { name: profile.name, role: state.role, title: profile.title, initials: profile.initials, email: `${state.role}@qcu.edu.ph` };
+  if (session?.role !== state.role) {
+    return { name: profile.name, role: state.role, title: profile.title, initials: profile.initials, email: `${state.role}@qcu.edu.ph` };
+  }
+  const savedAccount = getAccounts().find((account) => account.email.toLowerCase() === session.email?.toLowerCase());
+  if (!savedAccount || state.role !== "student") return session;
+  return {
+    ...session,
+    studentNumber: session.studentNumber || savedAccount.studentNumber,
+    collegeName: session.collegeName || savedAccount.collegeName,
+    programName: session.programName || savedAccount.programName,
+    yearLevel: session.yearLevel || savedAccount.yearLevel
+  };
 }
 
 function setAuthRole(role) {
@@ -104,6 +118,8 @@ function setAuthRole(role) {
     const studentIdInput = studentIdBox.querySelector("input");
     if (studentIdInput) studentIdInput.required = isStudent;
   }
+  const academicFields = document.getElementById("student-academic-fields");
+  if (academicFields) academicFields.hidden = role !== "student";
   updateAuthSubmitButtons();
 }
 
@@ -111,8 +127,158 @@ function updateAuthSubmitButtons() {
   for (const formId of ["login-form", "signup-form"]) {
     const form = document.getElementById(formId);
     const submit = form?.querySelector('[type="submit"]');
-    if (form && submit) submit.disabled = !form.checkValidity();
+    const hasStudentCatalogSelection = formId !== "signup-form"
+      || state.selectedAuthRole !== "student"
+      || Boolean(state.selectedCollegeId && state.selectedProgramId);
+    if (form && submit) submit.disabled = !form.checkValidity() || !hasStudentCatalogSelection;
   }
+}
+
+function catalogError(message) {
+  const error = document.querySelector("[data-auth-error='signup']");
+  if (error) error.textContent = message;
+}
+
+function closeCatalogDropdowns() {
+  for (const field of ["college", "program"]) {
+    const input = document.getElementById(`signup-${field}`);
+    const options = document.getElementById(`${field}-options`);
+    if (input) input.setAttribute("aria-expanded", "false");
+    if (options) options.hidden = true;
+  }
+  document.getElementById("student-academic-fields")?.classList.remove("catalog-open");
+  state.openCatalogDropdown = "";
+}
+
+function renderCatalogOptions(container, options, key, selectedId) {
+  if (!container) return;
+  container.replaceChildren();
+  if (!options.length) {
+    const emptyMessage = document.createElement("p");
+    emptyMessage.className = "catalog-empty";
+    emptyMessage.setAttribute("role", "status");
+    emptyMessage.textContent = "No options are available.";
+    container.append(emptyMessage);
+    return;
+  }
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "catalog-option";
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(option.id === selectedId));
+    button.dataset[key] = option.id;
+    button.textContent = option.name;
+    container.append(button);
+  }
+}
+
+function formatStudentNumber(input) {
+  const caret = input.selectionStart ?? input.value.length;
+  const digitsBeforeCaret = input.value.slice(0, caret).replace(/\D/g, "").length;
+  const digits = input.value.replace(/\D/g, "").slice(0, 6);
+  const formatted = digits.length > 2
+    ? `${digits.slice(0, 2)}-${digits.slice(2)}`
+    : digits.length === 2
+      ? `${digits}-`
+      : digits;
+  input.value = formatted;
+  const nextCaret = digitsBeforeCaret > 2
+    ? 3 + digitsBeforeCaret - 2
+    : digitsBeforeCaret === 2 && digits.length >= 2
+      ? 3
+      : digitsBeforeCaret;
+  input.setSelectionRange(nextCaret, nextCaret);
+}
+
+async function loadCollegeCatalog() {
+  if (state.collegeCatalogLoaded) return;
+  const input = document.getElementById("signup-college");
+  if (input) {
+    input.disabled = true;
+    input.placeholder = "Loading colleges...";
+  }
+  try {
+    const response = await api("/catalog/colleges");
+    if (!Array.isArray(response.colleges) || response.colleges.some((college) =>
+      typeof college.id !== "string"
+      || typeof college.name !== "string"
+      || !["THIRD", "FOURTH"].includes(college.ojtYearLevel)
+      || !Array.isArray(college.programs)
+      || college.programs.some((program) => typeof program.id !== "string" || typeof program.name !== "string")
+    )) {
+      throw new Error("The college catalog returned invalid data.");
+    }
+    if (!response.colleges.length) {
+      throw new Error("No colleges are configured in Prisma. Seed the academic catalog and try again.");
+    }
+    state.colleges = response.colleges;
+    state.collegeCatalogLoaded = true;
+  } finally {
+    if (input) {
+      input.disabled = false;
+      input.placeholder = "Select Department / College";
+    }
+  }
+}
+
+async function toggleCatalogDropdown(field) {
+  if (state.openCatalogDropdown === field) {
+    closeCatalogDropdowns();
+    return;
+  }
+
+  if (field === "college") {
+    try {
+      await loadCollegeCatalog();
+    } catch (error) {
+      catalogError(error.message);
+      return;
+    }
+    renderCatalogOptions(document.getElementById("college-options"), state.colleges, "collegeOption", state.selectedCollegeId);
+  } else {
+    const college = state.colleges.find((item) => item.id === state.selectedCollegeId);
+    if (!college) {
+      catalogError("Select a Department / College first.");
+      return;
+    }
+    renderCatalogOptions(document.getElementById("program-options"), college.programs, "programOption", state.selectedProgramId);
+  }
+
+  closeCatalogDropdowns();
+  const input = document.getElementById(`signup-${field}`);
+  const options = document.getElementById(`${field}-options`);
+  if (input) input.setAttribute("aria-expanded", "true");
+  if (options) options.hidden = false;
+  document.getElementById("student-academic-fields")?.classList.add("catalog-open");
+  state.openCatalogDropdown = field;
+  catalogError("");
+}
+
+function selectCollege(collegeId) {
+  const college = state.colleges.find((item) => item.id === collegeId);
+  if (!college) return;
+  state.selectedCollegeId = college.id;
+  state.selectedProgramId = "";
+  document.getElementById("signup-college").value = college.name;
+  document.getElementById("signup-program").value = "";
+  document.getElementById("signup-program").disabled = false;
+  document.getElementById("signup-program").placeholder = college.programs.length ? "Select Program" : "No programs available";
+  document.getElementById("signup-year-level").value = college.ojtYearLevel === "THIRD" ? "3rd Year" : "4th Year";
+  closeCatalogDropdowns();
+  catalogError("");
+  updateAuthSubmitButtons();
+}
+
+function selectProgram(programId) {
+  const college = state.colleges.find((item) => item.id === state.selectedCollegeId);
+  const program = college?.programs.find((item) => item.id === programId);
+  if (!program) return;
+  state.selectedProgramId = program.id;
+  document.getElementById("signup-program").value = program.name;
+  closeCatalogDropdowns();
+  catalogError("");
+  updateAuthSubmitButtons();
 }
 
 document.querySelectorAll("[data-role-option]").forEach((button) => {
@@ -121,6 +287,7 @@ document.querySelectorAll("[data-role-option]").forEach((button) => {
 
 function setAuthMode(mode) {
   state.authMode = mode === "signup" ? "signup" : "login";
+  document.title = `InternSync — ${state.authMode === "signup" ? "Sign Up" : "Sign In"}`;
   document.getElementById("auth-screen")?.setAttribute("data-auth-mode", state.authMode);
   document.querySelectorAll(".auth-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.authMode === state.authMode);
@@ -151,10 +318,16 @@ function updateAuthView() {
 
 async function api(path, options = {}) {
   let response;
+  const accessToken = getSession()?.accessToken;
   try {
     response = await fetch(`/api${path}`, {
       ...options,
-      headers: { "Content-Type": "application/json", "X-Demo-Role": state.role, ...(options.headers || {}) }
+      headers: {
+        "Content-Type": "application/json",
+        "X-Demo-Role": state.role,
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(options.headers || {})
+      }
     });
   } catch (error) {
     throw new Error("Cannot connect to the InternSync backend. Start it separately with `cd Backend && npm start`, then try again.");
@@ -189,12 +362,6 @@ function updateProfile() {
   if (appShell) appShell.dataset.role = state.role;
   const workspaceLabel = document.getElementById("workspace-label");
   if (workspaceLabel) workspaceLabel.textContent = profile.workspace;
-  const profileInitials = document.getElementById("profile-initials");
-  if (profileInitials) profileInitials.textContent = account.initials || profile.initials;
-  const profileName = document.getElementById("profile-name");
-  if (profileName) profileName.textContent = account.name || profile.name;
-  const profileRole = document.getElementById("profile-role");
-  if (profileRole) profileRole.textContent = account.title || profile.title;
   const helpTitle = document.getElementById("help-title");
   if (helpTitle) helpTitle.textContent = profile.helpTitle;
   const helpCopy = document.getElementById("help-copy");
@@ -204,7 +371,25 @@ function updateProfile() {
   const topbarName = document.getElementById("topbar-name");
   if (topbarName) topbarName.textContent = account.name || profile.name;
   const topbarRole = document.getElementById("topbar-role");
-  if (topbarRole) topbarRole.textContent = account.title || profile.title;
+  if (topbarRole) topbarRole.textContent = state.role === "student" ? "Student" : (account.title || profile.title);
+  const topbarAvatar = document.getElementById("topbar-avatar");
+  let profilePhoto = "";
+  if (state.role === "student") {
+    const profileKey = `internsync-student-profile:${(account.email || "student@qcu.edu.ph").toLowerCase()}`;
+    const storedProfile = localStorage.getItem(profileKey);
+    if (storedProfile) {
+      try {
+        profilePhoto = JSON.parse(storedProfile).profilePhoto || "";
+      } catch (error) {
+        console.error("Could not read the saved student profile photo.", error);
+      }
+    }
+  }
+  if (topbarAvatar && !profilePhoto) topbarAvatar.textContent = account.initials || profile.initials;
+  window.dispatchEvent(new CustomEvent("internsync-profile-avatar-updated", {
+    detail: { profilePhoto, initials: account.initials || profile.initials }
+  }));
+  window.dispatchEvent(new CustomEvent("internsync-student-profile-updated"));
 }
 
 function setSidebarOpen(open) {
@@ -267,6 +452,8 @@ function renderPage() {
     "my-ojt": "My OJT",
     "moa-moa": "MOU/MOA",
     reflection: "Reflection",
+    "student-profile": "OJT Student Profile",
+    classroom: state.role === "adviser" ? "Classroom" : "Overview",
     documents: "Documents",
     review: "Review submissions"
   };
@@ -278,7 +465,8 @@ function renderPage() {
       "partner-companies": "Partner Companies",
       "my-ojt": "My OJT",
       "moa-moa": "MOU/MOA",
-      reflection: "Reflection"
+      reflection: "Reflection",
+      "student-profile": "OJT Student Profile"
     },
     adviser: { "adviser-dashboard": "OJT Adviser Dashboard", review: "Review Submissions" },
     spards: { "spards-dashboard": "SPARDS Dashboard", documents: "Document Review" }
@@ -292,8 +480,10 @@ function renderPage() {
   };
   const View = views[state.page] || StudentDashboard;
   const currentPageLabel = labels[state.page] || labels["student-dashboard"];
+  const pageTitle = pageTitles[state.role]?.[state.page] || currentPageLabel;
   const workspaceHeading = document.getElementById("workspace-heading");
-  if (workspaceHeading) workspaceHeading.textContent = pageTitles[state.role]?.[state.page] || currentPageLabel;
+  if (workspaceHeading) workspaceHeading.textContent = pageTitle;
+  document.title = `InternSync — ${pageTitle}`;
   setNavigation();
   flushSync(() => {
     pageRoot.render(createElement(View, { state, currentAccount, submissionFor, formatDate, requirementFor }));
@@ -341,6 +531,23 @@ async function refreshData() {
 }
 
 document.addEventListener("click", async (event) => {
+  const collegeOption = event.target.closest("[data-college-option]");
+  if (collegeOption) {
+    selectCollege(collegeOption.dataset.collegeOption);
+    return;
+  }
+  const programOption = event.target.closest("[data-program-option]");
+  if (programOption) {
+    selectProgram(programOption.dataset.programOption);
+    return;
+  }
+  const catalogInput = event.target.closest("[data-catalog-dropdown]");
+  if (catalogInput) {
+    await toggleCatalogDropdown(catalogInput.dataset.catalogDropdown);
+    return;
+  }
+  closeCatalogDropdowns();
+
   const sidebarEl = document.getElementById("sidebar");
   if (sidebarEl && sidebarEl.classList.contains("open") && !event.target.closest("#sidebar") && !event.target.closest("#mobile-menu")) {
     setSidebarOpen(false);
@@ -351,6 +558,15 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("#logout-button")) {
+    const session = getSession();
+    if (session?.accessToken) {
+      try {
+        await api("/auth/logout", { method: "POST" });
+      } catch (logoutError) {
+        console.error("Could not revoke the student session.", logoutError);
+        toast.error("Logged out here, but the server session could not be revoked.");
+      }
+    }
     clearSession();
     updateAuthView();
     toast.success("You have been logged out.");
@@ -415,7 +631,33 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+document.addEventListener("keydown", (event) => {
+  if (event.target.id === "signup-student-id"
+    && event.key === "Backspace"
+    && event.target.selectionStart === event.target.selectionEnd
+    && event.target.selectionStart === event.target.value.length
+    && /^\d{2}-$/.test(event.target.value)) {
+    event.preventDefault();
+    event.target.value = event.target.value.slice(0, 1);
+    event.target.setSelectionRange(1, 1);
+    updateAuthSubmitButtons();
+    return;
+  }
+  const catalogInput = event.target.closest("[data-catalog-dropdown]");
+  if (!catalogInput) {
+    if (event.key === "Escape") closeCatalogDropdowns();
+    return;
+  }
+  if (["Enter", " ", "ArrowDown"].includes(event.key)) {
+    event.preventDefault();
+    toggleCatalogDropdown(catalogInput.dataset.catalogDropdown);
+  } else if (event.key === "Escape") {
+    closeCatalogDropdowns();
+  }
+});
+
 document.addEventListener("input", (event) => {
+  if (event.target.id === "signup-student-id") formatStudentNumber(event.target);
   if (event.target.closest("#login-form, #signup-form")) updateAuthSubmitButtons();
   if (event.target.matches("[data-search]") || event.target.matches(".search-box input")) {
     const isTopbar = event.target.closest(".search-box") !== null;
@@ -467,15 +709,67 @@ document.addEventListener("submit", async (event) => {
     if (!form.checkValidity()) return;
     const email = form.email.value.trim();
     const password = form.password.value.trim();
-    const role = state.selectedAuthRole || "student";
     const error = form.querySelector("[data-auth-error='login']");
-    const account = getAccounts().find((candidate) => candidate.email.toLowerCase() === email.toLowerCase() && candidate.password === password && candidate.role === role);
+    let account;
+    let authenticatedStudent;
+    const localAccount = getAccounts().find((candidate) => candidate.email.toLowerCase() === email.toLowerCase()
+      && candidate.password === password);
+    const demoAccount = defaultAccounts.find((candidate) => candidate.role === "student"
+      && candidate.email.toLowerCase() === email.toLowerCase()
+      && candidate.password === password);
+    if (demoAccount) {
+      account = demoAccount;
+    } else if (localAccount && localAccount.role !== "student") {
+      account = localAccount;
+    } else {
+      try {
+        authenticatedStudent = await api("/auth/student-login", {
+          method: "POST",
+          body: JSON.stringify({ email, password })
+        });
+      } catch (loginError) {
+        error.textContent = loginError.message;
+        return;
+      }
+      const profile = authenticatedStudent.profile;
+      account = {
+        name: profile.name,
+        email: profile.email,
+        role: "student",
+        initials: getInitials(profile.name),
+        title: roleDetails.student.title,
+        studentNumber: profile.studentNumber,
+        collegeId: profile.collegeId,
+        collegeName: profile.collegeName,
+        programId: profile.programId,
+        programName: profile.programName,
+        yearLevel: profile.yearLevel
+      };
+    }
     if (!account) {
       error.textContent = "Invalid email, password, or selected role.";
       return;
     }
     error.textContent = "";
-    const session = { name: account.name, email: account.email, role: account.role, initials: account.initials || (account.name || "").split(" ").map((part) => part[0]).slice(0, 2).join(""), title: account.title || roleDetails[account.role].title };
+    const session = {
+      name: account.name,
+      email: account.email,
+      role: account.role,
+      initials: account.initials || getInitials(account.name),
+      title: account.title || roleDetails[account.role].title,
+      ...(authenticatedStudent ? {
+        accessToken: authenticatedStudent.accessToken,
+        firstName: authenticatedStudent.profile.firstName,
+        middleName: authenticatedStudent.profile.middleName,
+        lastName: authenticatedStudent.profile.lastName,
+        studentNumber: authenticatedStudent.profile.studentNumber,
+        collegeId: authenticatedStudent.profile.collegeId,
+        collegeName: authenticatedStudent.profile.collegeName,
+        programId: authenticatedStudent.profile.programId,
+        programName: authenticatedStudent.profile.programName,
+        yearLevel: authenticatedStudent.profile.yearLevel
+      } : {})
+    };
     saveSession(session);
     state.role = account.role;
     state.page = HOME_PAGE_BY_ROLE[account.role];
@@ -490,6 +784,7 @@ document.addEventListener("submit", async (event) => {
   if (form.id === "signup-form") {
     event.preventDefault();
     if (!form.checkValidity()) return;
+    let authenticatedStudent;
     const name = form.name.value.trim();
     const email = form.email.value.trim();
     const password = form.password.value.trim();
@@ -499,11 +794,22 @@ document.addEventListener("submit", async (event) => {
       error.textContent = "Enter your details to create an account.";
       return;
     }
-    if (role === "student" && !isValidStudentId(form.studentId.value)) {
-      error.textContent = "Student ID is required for student accounts.";
+    if (role === "student" && !isValidStudentId(form.studentNumber.value)) {
+      error.textContent = "Enter a student ID in the format 23-1924.";
+      return;
+    }
+    const selectedCollege = state.colleges.find((college) => college.id === state.selectedCollegeId);
+    const selectedProgram = selectedCollege?.programs.find((program) => program.id === state.selectedProgramId);
+    if (role === "student" && (!selectedCollege || !selectedProgram)) {
+      error.textContent = "Select your Department / College and Program.";
+      document.getElementById(selectedCollege ? "signup-program" : "signup-college")?.focus();
       return;
     }
     const accounts = getAccounts();
+    if (role === "student" && accounts.some((candidate) => candidate.studentNumber === form.studentNumber.value)) {
+      error.textContent = "This student ID is already registered.";
+      return;
+    }
     if (accounts.some((candidate) => candidate.email.toLowerCase() === email.toLowerCase())) {
       error.textContent = "An account with this email already exists.";
       return;
@@ -513,17 +819,61 @@ document.addEventListener("submit", async (event) => {
       error.textContent = passwordValidation.message;
       return;
     }
+    if (role === "student") {
+      try {
+        authenticatedStudent = await api("/auth/student-signup", {
+          method: "POST",
+          body: JSON.stringify({
+            studentNumber: form.studentNumber.value,
+            name,
+            email,
+            password,
+            programId: selectedProgram.id
+          })
+        });
+      } catch (signupError) {
+        error.textContent = signupError.message;
+        return;
+      }
+    }
+    const registeredProfile = authenticatedStudent?.profile;
     const newAccount = {
-      name,
+      name: registeredProfile?.name || name,
       email,
-      password,
+      ...(role === "student" ? {} : { password }),
       role,
-      initials: getInitials(name) || "U",
-      title: roleDetails[role].title
+      initials: getInitials(registeredProfile?.name || name) || "U",
+      title: roleDetails[role].title,
+      ...(role === "student" ? {
+        studentNumber: registeredProfile.studentNumber,
+        collegeId: registeredProfile.collegeId,
+        collegeName: registeredProfile.collegeName,
+        programId: registeredProfile.programId,
+        programName: registeredProfile.programName,
+        yearLevel: registeredProfile.yearLevel
+      } : {})
     };
     saveAccounts([...accounts, newAccount]);
     error.textContent = "";
-    const session = { name: newAccount.name, email: newAccount.email, role: newAccount.role, initials: newAccount.initials, title: newAccount.title };
+    const session = {
+      name: newAccount.name,
+      email: newAccount.email,
+      role: newAccount.role,
+      initials: newAccount.initials,
+      title: newAccount.title,
+      ...(newAccount.role === "student" ? {
+        accessToken: authenticatedStudent.accessToken,
+        firstName: registeredProfile.firstName,
+        middleName: registeredProfile.middleName,
+        lastName: registeredProfile.lastName,
+        studentNumber: newAccount.studentNumber,
+        collegeId: newAccount.collegeId,
+        collegeName: newAccount.collegeName,
+        programId: newAccount.programId,
+        programName: newAccount.programName,
+        yearLevel: newAccount.yearLevel
+      } : {})
+    };
     saveSession(session);
     state.role = newAccount.role;
     state.page = HOME_PAGE_BY_ROLE[newAccount.role];

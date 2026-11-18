@@ -4,7 +4,6 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarDays,
-  CircleCheck,
   ClipboardList,
   Clock3,
   FileCheck2,
@@ -20,6 +19,7 @@ import StudentHoursSummary, {
   ojtLoggedHours,
   ojtRequiredHours,
 } from "@/components/views/StudentHoursSummary";
+import StudentProfile from "@/components/views/student-profile";
 
 type ViewProps = {
   state: any;
@@ -37,6 +37,7 @@ const studentPages: Record<string, string> = {
   "my-ojt": "My OJT",
   "moa-moa": "MOU/MOA",
   reflection: "Reflection",
+  "student-profile": "OJT Student Profile",
 };
 
 function statusVariant(status: string) {
@@ -57,6 +58,10 @@ function StudentPageHeader({ eyebrow, title, description }: { eyebrow: string; t
 }
 
 export default function StudentDashboard({ state, currentAccount, submissionFor, formatDate, requirementFor }: ViewProps) {
+  if (state.role === "student" && state.page === "student-profile") {
+    return <StudentProfile account={currentAccount()} />;
+  }
+
   if (state.role === "student" && state.page !== "student-dashboard") {
     return (
       <StudentSection
@@ -77,7 +82,6 @@ export default function StudentDashboard({ state, currentAccount, submissionFor,
   const submittedRequirements = approved + pendingReview;
   const agreements = submissions.filter((item: any) => ["MOA", "MOU"].includes(item.documentType));
   const approvedAgreements = agreements.filter((item: any) => item.status === "Approved").length;
-
   const requirementRows = [
     { title: "Signed Endorsement Letter", status: "Approved" },
     { title: "Notarized MOU", status: "Approved" },
@@ -92,6 +96,7 @@ export default function StudentDashboard({ state, currentAccount, submissionFor,
     { title: "Weekly report due tomorrow", detail: "Don't forget to submit your weekly report by 8:00 AM.", time: "1d ago" },
     { title: "MOU revision updated", detail: "Your MOU document needs corrections. Check the adviser's comments.", time: "3d ago" },
   ];
+  const notificationCount = notifications.length;
 
   const cardShell = "min-h-[130px] rounded-[16px] border border-[#dfe5ef] bg-white";
 
@@ -139,7 +144,7 @@ export default function StudentDashboard({ state, currentAccount, submissionFor,
         />
       </div>
 
-      <div className="student-dashboard-panels grid gap-3 xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
+      <div className="student-dashboard-panels grid items-start gap-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
         <div className="grid min-w-0 content-start gap-3">
         <SectionCard
           title="OJT Hours Summary"
@@ -156,7 +161,6 @@ export default function StudentDashboard({ state, currentAccount, submissionFor,
           </div>
           <ProgressBar className="student-dashboard-progress mt-3 h-2" value={ojtCompletion} label={`${ojtCompletion.toFixed(1)}% OJT hours completed`} />
         </SectionCard>
-
         <SectionCard
           title="Requirement & Documents Status"
           viewAll={
@@ -199,7 +203,7 @@ export default function StudentDashboard({ state, currentAccount, submissionFor,
       </div>
 
       <div className="grid min-w-0 content-start gap-3">
-        <SectionCard title={<>Notifications <span className="student-dashboard-count">4</span></>} viewAll={<button type="button" className="student-dashboard-view-all text-sm font-semibold text-primary hover:underline">View all <ArrowRight size={12} aria-hidden="true" /></button>} className={`${cardShell} student-dashboard-section p-3`}>
+        <SectionCard title={<>Notifications <span className="student-dashboard-count">{notificationCount}</span></>} viewAll={<button type="button" className="student-dashboard-view-all text-sm font-semibold text-primary hover:underline">View all <ArrowRight size={12} aria-hidden="true" /></button>} className={`${cardShell} student-dashboard-section p-3`}>
           <ul className="space-y-1">
             {notifications.map((notification) => (
               <NotificationItem key={notification.title} title={notification.title} text={notification.detail} time={notification.time} className="student-dashboard-notification rounded-lg px-2 py-2 last:border-b-0" />

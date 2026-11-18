@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpenText, Briefcase, ClipboardList, FileText, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { BookOpenText, Briefcase, ClipboardList, FileText, LayoutDashboard, Users } from "lucide-react";
 
 const navItems = [
   { page: "student-dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -71,27 +71,15 @@ export default function Sidebar() {
         </nav>
 
         <div className="sidebar-bottom mt-auto pt-6">
-          <button
-            className="profile-card flex w-full items-center gap-3 border-0 bg-transparent px-1 py-3 text-left text-white"
-            id="profile-button"
-            type="button"
-          >
-            <span className="avatar avatar-navy grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-[11px] font-bold text-white" id="profile-initials">
-              JD
+          <div className="profile-card flex w-full items-center gap-3 border-0 bg-transparent px-1 py-3 text-left text-white">
+            <span className="avatar avatar-navy grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-[11px] font-bold text-white" aria-hidden="true">
+              PJ
             </span>
             <span className="profile-copy grid min-w-0 flex-1 gap-0.5">
-              <strong className="truncate text-sm" id="profile-name">Juan Dela Cruz</strong>
-              <small className="truncate text-[10px] text-white/65" id="profile-role">QCU Student</small>
+              <strong className="truncate text-sm">Prof. Juan DelaCruz</strong>
+              <small className="truncate text-[10px] text-white/65">OJT Adviser</small>
             </span>
-          </button>
-          <button
-            className="logout-button mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-transparent px-3 py-2 text-sm font-semibold text-white/85 transition hover:bg-white/10"
-            id="logout-button"
-            type="button"
-          >
-            <LogOut size={16} aria-hidden="true" />
-            Log out
-          </button>
+          </div>
         </div>
       </div>
     </aside>

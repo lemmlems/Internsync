@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  passwordHash    String
+  firstName       String
+  middleName      String?
+  lastName        String
+  role            String          @default("STUDENT")
+  isActive        Boolean         @default(true)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  studentProfile  StudentProfile?
+  staffProfile    StaffProfile?
+  sessions        Session[]
+  staffInvites    StaffInvite[]   @relation("StaffInviteCreator")
+
+  @@index([role, isActive])
+}
+
+model StudentProfile {
+  userId         String   @id
+  studentNumber  String   @unique
+  programId      String
+  contactNumber  String?
+  streetAddress  String?
+  barangay       String?
+  city           String?
+  province       String?
+  postalCode     String?
+  partnerCompany String?
+  ojtPeriod      String?
+  licensesJson   String   @default("[]")
+  skillsJson     String   @default("[]")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program        Program  @relation(fields: [programId], references: [id], onDelete: Restrict)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([programId])
+}
+
+model StaffProfile {
+  userId         String   @id
+  employeeNumber String?  @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model StaffInvite {
+  id              String    @id @default(cuid())
+  email           String
+  role            String
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  createdBy       User      @relation("StaffInviteCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([email, expiresAt])
+}
+
+model College {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  name         String    @unique
+  ojtYearLevel String
+  sortOrder    Int       @default(0)
+  programs     Program[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model City {
+  id             String     @id @default(cuid())
+  name           String
+  normalizedName String     @unique
+  barangays      Barangay[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Barangay {
+  id             String   @id @default(cuid())
+  cityId         String
+  name           String
+  normalizedName String
+  city           City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([cityId, normalizedName])
+  @@index([cityId])
+}
+
+model Program {
+  id              String           @id @default(cuid())
+  collegeId       String
+  code            String
+  name            String
+  sortOrder       Int              @default(0)
+  college         College          @relation(fields: [collegeId], references: [id], onDelete: Restrict)
+  studentProfiles StudentProfile[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([collegeId, code])
+  @@unique([collegeId, name])
+  @@index([collegeId])
+}
