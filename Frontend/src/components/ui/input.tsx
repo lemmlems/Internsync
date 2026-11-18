@@ -1,21 +1,43 @@
 import * as React from "react";
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
-const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input(
-  { className, type = "text", ...props },
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: React.ReactNode;
+  error?: React.ReactNode;
+  helperText?: React.ReactNode;
+}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
+  { className, type = "text", id, label, error, helperText, "aria-describedby": describedBy, "aria-invalid": ariaInvalid, ...props },
   ref,
 ) {
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
+  const messageId = `${inputId}-message`;
+  const hasMessage = Boolean(error || helperText);
+
   return (
-    <input
-      ref={ref}
-      type={type}
-      data-slot="input"
-      className={cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none transition-[color,box-shadow] file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className,
+    <div className="grid w-full gap-1.5">
+      {label && <label className="text-sm font-medium text-foreground" htmlFor={inputId}>{label}</label>}
+      <input
+        ref={ref}
+        id={inputId}
+        type={type}
+        data-slot="input"
+        aria-invalid={error ? true : ariaInvalid}
+        aria-describedby={[describedBy, hasMessage ? messageId : undefined].filter(Boolean).join(" ") || undefined}
+        className={cn(
+          "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none transition-[color,box-shadow] file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+          className,
+        )}
+        {...props}
+      />
+      {hasMessage && (
+        <p id={messageId} className={cn("text-xs", error ? "text-destructive" : "text-muted-foreground")} role={error ? "alert" : undefined}>
+          {error || helperText}
+        </p>
       )}
-      {...props}
-    />
+    </div>
   );
 });
 

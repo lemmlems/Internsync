@@ -26,11 +26,17 @@ export const NAV_ITEMS_BY_ROLE: Record<AppRole, NavItem[]> = {
     { page: "reflection", label: "Reflection", icon: BookOpenText },
   ],
   adviser: [
-    { page: "classroom", label: "Classroom", icon: LayoutDashboard },
+    { page: "adviser-dashboard", label: "Dashboard", icon: LayoutDashboard },
     { page: "review", label: "Review submissions", icon: ClipboardList },
   ],
   spards: [
-    { page: "classroom", label: "Overview", icon: BookOpenText },
+    { page: "spards-dashboard", label: "Dashboard", icon: LayoutDashboard },
     { page: "documents", label: "Documents", icon: Files },
   ],
+};
+
+export const HOME_PAGE_BY_ROLE: Record<AppRole, string> = {
+  student: "student-dashboard",
+  adviser: "adviser-dashboard",
+  spards: "spards-dashboard",
 };
