@@ -16,6 +16,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 type ProfileData = {
   fullName: string;
@@ -256,6 +257,211 @@ function readImage(file: File): Promise<string> {
     };
     reader.onerror = () => reject(new Error("The selected image could not be read."));
     reader.readAsDataURL(file);
+  });
+}
+
+function countInkComponents(mask: Uint8Array, width: number, height: number) {
+  const visited = new Uint8Array(mask.length);
+  const queue = new Int32Array(mask.length);
+  let components = 0;
+
+  for (let start = 0; start < mask.length; start += 1) {
+    if (!mask[start] || visited[start]) continue;
+    components += 1;
+    if (components > 35) return components;
+
+    let head = 0;
+    let tail = 0;
+    queue[tail] = start;
+    tail += 1;
+    visited[start] = 1;
+
+    while (head < tail) {
+      const current = queue[head];
+      head += 1;
+      const x = current % width;
+      const y = Math.floor(current / width);
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) continue;
+          const neighborX = x + offsetX;
+          const neighborY = y + offsetY;
+          if (neighborX < 0 || neighborY < 0 || neighborX >= width || neighborY >= height) continue;
+          const neighbor = neighborY * width + neighborX;
+          if (!mask[neighbor] || visited[neighbor]) continue;
+          visited[neighbor] = 1;
+          queue[tail] = neighbor;
+          tail += 1;
+        }
+      }
+    }
+  }
+  return components;
+}
+
+function colorDistance(red: number, green: number, blue: number, background: [number, number, number]) {
+  const redDifference = red - background[0];
+  const greenDifference = green - background[1];
+  const blueDifference = blue - background[2];
+  return Math.sqrt(redDifference ** 2 + greenDifference ** 2 + blueDifference ** 2);
+}
+
+function getBackgroundColor(pixels: Uint8ClampedArray, width: number, height: number) {
+  const samples: [number, number, number][] = [];
+  const step = Math.max(1, Math.floor(Math.max(width, height) / 256));
+  const addSample = (x: number, y: number) => {
+    const index = (y * width + x) * 4;
+    if (pixels[index + 3] < 128) return;
+    samples.push([pixels[index], pixels[index + 1], pixels[index + 2]]);
+  };
+
+  for (let x = 0; x < width; x += step) {
+    addSample(x, 0);
+    addSample(x, height - 1);
+  }
+  for (let y = 0; y < height; y += step) {
+    addSample(0, y);
+    addSample(width - 1, y);
+  }
+
+  if (samples.length === 0) return { color: [255, 255, 255] as [number, number, number], uniformity: 0 };
+  const channels = [0, 1, 2].map((channel) => samples.map((sample) => sample[channel]).sort((a, b) => a - b));
+  const background = channels.map((channel) => channel[Math.floor(channel.length / 2)]) as [number, number, number];
+  const uniformSamples = samples.filter((sample) => colorDistance(sample[0], sample[1], sample[2], background) <= 35).length;
+  return { color: background, uniformity: uniformSamples / samples.length };
+}
+
+function looksLikeSignature(imageUrl: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, 128 / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        reject(new Error("The signature image could not be checked."));
+        return;
+      }
+
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      const pixels = context.getImageData(0, 0, width, height).data;
+      const { color: background, uniformity } = getBackgroundColor(pixels, width, height);
+      const inkMask = new Uint8Array(width * height);
+      let backgroundPixels = 0;
+      let inkPixels = 0;
+
+      for (let index = 0; index < inkMask.length; index += 1) {
+        const red = pixels[index * 4];
+        const green = pixels[index * 4 + 1];
+        const blue = pixels[index * 4 + 2];
+        const distance = colorDistance(red, green, blue, background);
+        if (distance <= 35) backgroundPixels += 1;
+        if (distance > 45) {
+          inkMask[index] = 1;
+          inkPixels += 1;
+        }
+      }
+
+      const pixelCount = inkMask.length;
+      const backgroundRatio = backgroundPixels / pixelCount;
+      const inkRatio = inkPixels / pixelCount;
+      const inkComponents = countInkComponents(inkMask, width, height);
+      resolve(uniformity >= 0.7 && backgroundRatio >= 0.7 && inkRatio >= 0.001 && inkRatio <= 0.18 && inkComponents <= 35);
+    };
+    image.onerror = () => reject(new Error("The signature image could not be checked."));
+    image.src = imageUrl;
+  });
+}
+
+function removeSignatureBackground(imageUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, 2048 / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        reject(new Error("The signature background could not be removed."));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      const imageData = context.getImageData(0, 0, width, height);
+      const { data } = imageData;
+      let transparentPixels = 0;
+      for (let index = 3; index < data.length; index += 4) {
+        if (data[index] < 16) transparentPixels += 1;
+      }
+      if (transparentPixels / (width * height) > 0.02) {
+        resolve(imageUrl);
+        return;
+      }
+
+      const { color: background } = getBackgroundColor(data, width, height);
+      const histogram = new Uint32Array(442);
+      let inkPixels = 0;
+      for (let index = 0; index < width * height; index += 1) {
+        const pixelIndex = index * 4;
+        if (data[pixelIndex + 3] < 16) continue;
+        const distance = Math.min(441, Math.round(colorDistance(data[pixelIndex], data[pixelIndex + 1], data[pixelIndex + 2], background)));
+        if (distance <= 22) continue;
+        histogram[distance] += 1;
+        inkPixels += 1;
+      }
+
+      let maxContrast = 0;
+      let accumulatedInk = 0;
+      for (let distance = 23; distance < histogram.length; distance += 1) {
+        accumulatedInk += histogram[distance];
+        if (accumulatedInk >= inkPixels * 0.9) {
+          maxContrast = distance;
+          break;
+        }
+      }
+      if (maxContrast <= 22) {
+        reject(new Error("The signature background could not be removed."));
+        return;
+      }
+
+      for (let index = 0; index < width * height; index += 1) {
+        const pixelIndex = index * 4;
+        const sourceAlpha = data[pixelIndex + 3] / 255;
+        if (sourceAlpha === 0) continue;
+        const red = data[pixelIndex];
+        const green = data[pixelIndex + 1];
+        const blue = data[pixelIndex + 2];
+        const distance = colorDistance(red, green, blue, background);
+        if (distance <= 22) {
+          data[pixelIndex + 3] = 0;
+          continue;
+        }
+
+        const opacity = Math.min(1, distance / maxContrast);
+        if (opacity < 0.04) {
+          data[pixelIndex + 3] = 0;
+          continue;
+        }
+        data[pixelIndex] = Math.max(0, Math.min(255, Math.round((red - background[0] * (1 - opacity)) / opacity)));
+        data[pixelIndex + 1] = Math.max(0, Math.min(255, Math.round((green - background[1] * (1 - opacity)) / opacity)));
+        data[pixelIndex + 2] = Math.max(0, Math.min(255, Math.round((blue - background[2] * (1 - opacity)) / opacity)));
+        data[pixelIndex + 3] = Math.round(sourceAlpha * opacity * 255);
+      }
+
+      context.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error("The signature background could not be removed."));
+    image.src = imageUrl;
   });
 }
 
@@ -810,9 +1016,19 @@ export default function StudentProfile({ account }: StudentProfileProps) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    if (!["image/png", "image/jpeg"].includes(file.type.toLowerCase())) {
+      setError("Upload your signature as a PNG or JPEG image.");
+      return;
+    }
 
     try {
-      const signatureImage = await readImage(file);
+      const sourceImage = await readImage(file);
+      if (!await looksLikeSignature(sourceImage)) {
+        setError("");
+        toast.error("Image rejected: The upload contains too much visual content or does not look like a signature on a simple background. Please upload only your signature.");
+        return;
+      }
+      const signatureImage = await removeSignatureBackground(sourceImage);
       const updatedProfile = { ...profile, signatureImage };
       localStorage.setItem(profileStorageKey(account), JSON.stringify(updatedProfile));
       setProfile(updatedProfile);
@@ -1320,94 +1536,104 @@ export default function StudentProfile({ account }: StudentProfileProps) {
       </ProfileSection>
 
       <div className="grid items-start gap-3 md:grid-cols-2">
-      <ProfileSection
-        title={`Licenses & Certifications (${profile.licenses.length})`}
-        action={
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => openLicenseManager(true)} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Add license or certification" title="Add license or certification"><Plus size={19} aria-hidden="true" /></button>
-            <button type="button" onClick={() => openLicenseManager()} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Edit licenses and certifications" title="Edit licenses and certifications"><Pencil size={16} aria-hidden="true" /></button>
-          </div>
-        }
-      >
-        {profile.licenses.length ? (
-          <div>
-            <div className="divide-y divide-[#e9edf4]">
-              {profile.licenses.slice(0, 2).map((license) => (
-                <article key={license.id} className="flex gap-3 py-4 first:pt-1 last:pb-1">
-                  <div className="grid size-12 shrink-0 place-items-center rounded-md bg-[#0b1d33] text-center text-xs font-bold uppercase text-white" aria-hidden="true">
-                    {license.issuer.slice(0, 3) || "LIC"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="break-words text-sm font-semibold text-[#101828]">{license.name}</h3>
-                    <p className="mt-0.5 text-xs text-[#34425e]">{license.issuer}</p>
-                    {license.issueDate && <p className="mt-1 text-xs text-[#65718a]">Issued {formatIssueDate(license.issueDate)}</p>}
-                    {license.expiryDate && <p className="mt-1 text-xs text-[#65718a]">Expires {formatIssueDate(license.expiryDate)}</p>}
-                    {license.credentialUrl && (
-                      <a className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#cbd3df] px-3 py-1.5 text-xs font-medium text-[#202a43] hover:bg-[#f7f8fc]" href={license.credentialUrl} target="_blank" rel="noreferrer">
-                        Show credential <ExternalLink size={13} aria-hidden="true" />
-                      </a>
-                    )}
-                    {license.skills.length > 0 && <p className="mt-2 text-xs text-[#34425e]"><strong>Skills:</strong> {license.skills.join(", ")}</p>}
-                    {license.description && <p className="mt-2 text-xs text-[#34425e]">{license.description}</p>}
-                  </div>
-                </article>
-              ))}
-            </div>
-            {profile.licenses.length > 2 && (
-              <button type="button" onClick={() => openLicenseManager()} className="mt-3 w-full border-t border-[#e9edf4] pt-3 text-center text-xs font-semibold text-[#34425e]">
-                Show all {profile.licenses.length} licenses <span aria-hidden="true">→</span>
+        <ProfileSection title="OJT Information">
+          {profile.partnerCompany ? (
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <ProfileValue label="Partner Company" value={profile.partnerCompany} />
+              <ProfileValue label="OJT Period" value={profile.ojtPeriod} />
+            </dl>
+          ) : (
+            <div className="grid justify-items-start gap-2">
+              <p className="text-xs leading-relaxed text-[#65718a]">You do not have an OJT placement yet. Generate a resume from your profile information to share with potential partner companies.</p>
+              <button type="button" onClick={generateResume} className="inline-flex items-center gap-2 rounded bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1d4ed8]">
+                <Download size={13} aria-hidden="true" /> Generate Resume
               </button>
-            )}
-          </div>
-        ) : (
-          <p className="py-2 text-sm text-[#748098]">No licenses or certifications added yet.</p>
-        )}
-      </ProfileSection>
+            </div>
+          )}
+        </ProfileSection>
 
-      <ProfileSection
-        title="Skills"
-        action={
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => openSkillsManager()} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Add a skill" title="Add a skill"><Plus size={19} aria-hidden="true" /></button>
-            <button type="button" onClick={() => openSkillsManager()} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Edit skills" title="Edit skills"><Pencil size={16} aria-hidden="true" /></button>
-          </div>
-        }
-      >
-        {profile.skills.length
-          ? <div className="flex flex-wrap gap-2">{profile.skills.map((skill) => <button key={skill} type="button" onClick={() => openSkillsManager(skill)} className="rounded-full bg-[#edf4ff] px-3 py-1.5 text-xs font-medium text-[#173c70] hover:bg-[#dfeeff]" aria-label={`Edit ${skill}`}>{skill}</button>)}</div>
-          : <p className="py-2 text-sm text-[#748098]">No skills added yet.</p>}
-      </ProfileSection>
-      </div>
+        <ProfileSection
+          title={`Licenses & Certifications (${profile.licenses.length})`}
+          action={
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => openLicenseManager(true)} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Add license or certification" title="Add license or certification"><Plus size={19} aria-hidden="true" /></button>
+              <button type="button" onClick={() => openLicenseManager()} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Edit licenses and certifications" title="Edit licenses and certifications"><Pencil size={16} aria-hidden="true" /></button>
+            </div>
+          }
+        >
+          {profile.licenses.length ? (
+            <div>
+              <div className="divide-y divide-[#e9edf4]">
+                {profile.licenses.slice(0, 2).map((license) => (
+                  <article key={license.id} className="flex gap-3 py-4 first:pt-1 last:pb-1">
+                    <div className="grid size-12 shrink-0 place-items-center rounded-md bg-[#0b1d33] text-center text-xs font-bold uppercase text-white" aria-hidden="true">
+                      {license.issuer.slice(0, 3) || "LIC"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-sm font-semibold text-[#101828]">{license.name}</h3>
+                      <p className="mt-0.5 text-xs text-[#34425e]">{license.issuer}</p>
+                      {license.issueDate && <p className="mt-1 text-xs text-[#65718a]">Issued {formatIssueDate(license.issueDate)}</p>}
+                      {license.expiryDate && <p className="mt-1 text-xs text-[#65718a]">Expires {formatIssueDate(license.expiryDate)}</p>}
+                      {license.credentialUrl && (
+                        <a className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#cbd3df] px-3 py-1.5 text-xs font-medium text-[#202a43] hover:bg-[#f7f8fc]" href={license.credentialUrl} target="_blank" rel="noreferrer">
+                          Show credential <ExternalLink size={13} aria-hidden="true" />
+                        </a>
+                      )}
+                      {license.skills.length > 0 && <p className="mt-2 text-xs text-[#34425e]"><strong>Skills:</strong> {license.skills.join(", ")}</p>}
+                      {license.description && <p className="mt-2 text-xs text-[#34425e]">{license.description}</p>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+              {profile.licenses.length > 2 && (
+                <button type="button" onClick={() => openLicenseManager()} className="mt-3 w-full border-t border-[#e9edf4] pt-3 text-center text-xs font-semibold text-[#34425e]">
+                  Show all {profile.licenses.length} licenses <span aria-hidden="true">→</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="py-2 text-sm text-[#748098]">No licenses or certifications added yet.</p>
+          )}
+        </ProfileSection>
 
-      <div className="grid items-start gap-3 md:grid-cols-2">
-      <ProfileSection title="E-Signature Profile">
-        <div className="mb-4"><SignatureConsent /></div>
-        <div className="flex min-h-[112px] items-center justify-center rounded-lg border-2 border-dashed border-[#cbd6e8] bg-[#f8faff] p-3">
-          {profile.signatureImage
-            ? <img className="max-h-40 max-w-full object-contain" src={profile.signatureImage} alt="Student e-signature" />
-            : <div className="grid justify-items-center gap-2 text-[#91a0b7]"><FilePenLine size={30} aria-hidden="true" /><p className="text-sm font-semibold">No E-Signature Uploaded</p></div>}
-        </div>
-        <label htmlFor="student-signature-upload" className="mt-3 flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#e2e8f0] text-sm font-semibold text-[#101828] shadow-[0_6px_16px_rgba(70,92,130,0.16)] hover:bg-[#d9e2ee]">
-          <CloudUpload size={16} aria-hidden="true" /> Upload Signature
-        </label>
-        <input id="student-signature-upload" className="sr-only" type="file" accept="image/png,image/jpeg" onChange={(event) => void handleSignatureUpload(event)} />
-      </ProfileSection>
-
-      <ProfileSection title="OJT Information">
-        {profile.partnerCompany ? (
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <ProfileValue label="Partner Company" value={profile.partnerCompany} />
-            <ProfileValue label="OJT Period" value={profile.ojtPeriod} />
-          </dl>
-        ) : (
-          <div className="grid justify-items-start gap-2">
-            <p className="text-xs leading-relaxed text-[#65718a]">You do not have an OJT placement yet. Generate a resume from your profile information to share with potential partner companies.</p>
-            <button type="button" onClick={generateResume} className="inline-flex items-center gap-2 rounded bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1d4ed8]">
-              <Download size={13} aria-hidden="true" /> Generate Resume
-            </button>
+        <ProfileSection title="E-Signature Profile">
+          <div className="mb-4"><SignatureConsent /></div>
+          <div className="flex min-h-[112px] items-center justify-center rounded-lg border-2 border-dashed border-[#cbd6e8] bg-[#f8faff] p-3">
+            {profile.signatureImage
+              ? <img className="max-h-40 max-w-full object-contain" src={profile.signatureImage} alt="Student e-signature" />
+              : <div className="grid justify-items-center gap-2 text-[#91a0b7]"><FilePenLine size={30} aria-hidden="true" /><p className="text-sm font-semibold">No E-Signature Uploaded</p></div>}
           </div>
-        )}
-      </ProfileSection>
+          <label htmlFor="student-signature-upload" className="mt-3 flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#e2e8f0] text-sm font-semibold text-[#101828] shadow-[0_6px_16px_rgba(70,92,130,0.16)] hover:bg-[#d9e2ee]">
+            <CloudUpload size={16} aria-hidden="true" /> {profile.signatureImage ? "Replace Signature" : "Upload Signature"}
+          </label>
+          <input id="student-signature-upload" className="sr-only" type="file" accept="image/png,image/jpeg" aria-describedby="student-signature-hint" onChange={(event) => void handleSignatureUpload(event)} />
+          <p id="student-signature-hint" className="mt-2 text-center text-xs text-[#65718a]">Upload one signature image in PNG or JPEG format (up to 5 MB). Its plain background will be removed automatically; uploading again replaces it.</p>
+        </ProfileSection>
+
+        <ProfileSection
+          title="Skills"
+          action={
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => openSkillsManager()} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Add a skill" title="Add a skill"><Plus size={19} aria-hidden="true" /></button>
+              <button type="button" onClick={() => openSkillsManager()} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Edit skills" title="Edit skills"><Pencil size={16} aria-hidden="true" /></button>
+            </div>
+          }
+        >
+          {profile.skills.length ? (
+            <div>
+              <div className="flex flex-wrap gap-2">
+                {profile.skills.slice(0, 2).map((skill) => <button key={skill} type="button" onClick={() => openSkillsManager(skill)} className="rounded-full bg-[#edf4ff] px-3 py-1.5 text-xs font-medium text-[#173c70] hover:bg-[#dfeeff]" aria-label={`Edit ${skill}`}>{skill}</button>)}
+              </div>
+              {profile.skills.length > 2 && (
+                <button type="button" onClick={() => openSkillsManager()} className="mt-3 w-full border-t border-[#e9edf4] pt-3 text-center text-xs font-semibold text-[#34425e]">
+                  Show all {profile.skills.length} skills <span aria-hidden="true">→</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="py-2 text-sm text-[#748098]">No skills added yet.</p>
+          )}
+        </ProfileSection>
       </div>
       {error && <p className="rounded-md bg-[#fff1f2] px-3 py-2 text-xs text-[#b42335]" role="alert">{error}</p>}
     </div>

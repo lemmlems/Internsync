@@ -324,7 +324,7 @@ async function api(path, options = {}) {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        "X-Demo-Role": state.role,
+        ...(!path.startsWith("/auth/") ? { "X-Demo-Role": state.role } : {}),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(options.headers || {})
       }
@@ -731,7 +731,11 @@ document.addEventListener("submit", async (event) => {
         error.textContent = loginError.message;
         return;
       }
-      const profile = authenticatedStudent.profile;
+      const profile = authenticatedStudent?.profile;
+      if (!authenticatedStudent?.accessToken || !profile) {
+        error.textContent = "The server returned an incomplete student account response.";
+        return;
+      }
       account = {
         name: profile.name,
         email: profile.email,
@@ -785,13 +789,15 @@ document.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!form.checkValidity()) return;
     let authenticatedStudent;
-    const name = form.name.value.trim();
+    const firstName = form.firstName.value.trim();
+    const lastName = form.lastName.value.trim();
+    const name = `${firstName} ${lastName}`.trim();
     const email = form.email.value.trim();
     const password = form.password.value.trim();
     const role = state.selectedAuthRole || "student";
     const error = form.querySelector("[data-auth-error='signup']");
-    if (!isRequired(name) || !isRequired(email) || !isRequired(password)) {
-      error.textContent = "Enter your details to create an account.";
+    if (!isRequired(firstName) || !isRequired(lastName) || !isRequired(email) || !isRequired(password) || name.length > 200) {
+      error.textContent = "Enter your first name, last name, email, and password.";
       return;
     }
     if (role === "student" && !isValidStudentId(form.studentNumber.value)) {
@@ -825,6 +831,8 @@ document.addEventListener("submit", async (event) => {
           method: "POST",
           body: JSON.stringify({
             studentNumber: form.studentNumber.value,
+            firstName,
+            lastName,
             name,
             email,
             password,
@@ -835,6 +843,10 @@ document.addEventListener("submit", async (event) => {
         error.textContent = signupError.message;
         return;
       }
+    }
+    if (role === "student" && (!authenticatedStudent?.accessToken || !authenticatedStudent.profile)) {
+      error.textContent = "The server returned an incomplete student account response.";
+      return;
     }
     const registeredProfile = authenticatedStudent?.profile;
     const newAccount = {

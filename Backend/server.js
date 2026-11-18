@@ -328,7 +328,12 @@ const server = http.createServer(async (request, response) => {
       const body = await readBody(request);
       const studentNumber = typeof body.studentNumber === "string" ? body.studentNumber.trim() : "";
       const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-      const name = typeof body.name === "string" ? body.name.trim() : "";
+      const submittedFirstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
+      const submittedLastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+      const hasExplicitNames = typeof body.firstName === "string" || typeof body.lastName === "string";
+      const name = hasExplicitNames
+        ? [submittedFirstName, submittedLastName].filter(Boolean).join(" ")
+        : typeof body.name === "string" ? body.name.trim() : "";
       const password = typeof body.password === "string" ? body.password : "";
       const programId = typeof body.programId === "string" ? body.programId : "";
       if (!/^\d{2}-\d{4}$/.test(studentNumber)) {
@@ -339,7 +344,8 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 400, { error: "Enter a valid email address." });
         return;
       }
-      if (!name || name.length > 200 || password.trim().length < 6 || password.length > 128 || !programId) {
+      if (!name || name.length > 200 || (hasExplicitNames && (!submittedFirstName || !submittedLastName))
+        || password.trim().length < 6 || password.length > 128 || !programId) {
         sendJson(response, 400, { error: "Provide your name, a program, and a password of at least 6 characters." });
         return;
       }
@@ -363,10 +369,19 @@ const server = http.createServer(async (request, response) => {
         return;
       }
 
-      const nameParts = name.split(/\s+/);
-      const firstName = nameParts.shift();
-      const lastName = nameParts.pop() || firstName;
-      const middleName = nameParts.join(" ") || null;
+      let firstName;
+      let lastName;
+      let middleName;
+      if (hasExplicitNames) {
+        firstName = submittedFirstName;
+        lastName = submittedLastName;
+        middleName = null;
+      } else {
+        const nameParts = name.split(/\s+/);
+        firstName = nameParts.shift();
+        lastName = nameParts.pop() || firstName;
+        middleName = nameParts.join(" ") || null;
+      }
       const accessToken = crypto.randomBytes(32).toString("hex");
       const user = await prisma.user.create({
         data: {

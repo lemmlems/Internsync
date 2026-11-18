@@ -1,4 +1,11 @@
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { toast } from "../../lib/toast";
+
 export default function SignIn() {
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+
   return (
     <div className="auth-screen min-h-screen" id="auth-screen" aria-live="polite">
       <div className="auth-panel auth-intro relative flex flex-col">
@@ -22,9 +29,18 @@ export default function SignIn() {
           </div>
           <div className="login-card-bottom">
             <div className="auth-field"><label htmlFor="login-email">Email Address</label><input id="login-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
-            <div className="auth-field"><label htmlFor="login-password">Password</label><input id="login-password" name="password" type="password" placeholder="Enter your password" required /></div>
-            <p className="auth-switch-text">Don't have an account? <button type="button" className="link-button" data-auth-mode="signup">Sign Up</button></p>
+            <div className="auth-field">
+              <label htmlFor="login-password">Password</label>
+              <div className="auth-password-wrap">
+                <input id="login-password" name="password" type={showLoginPassword ? "text" : "password"} placeholder="Enter your password" required />
+                <button type="button" className="password-visibility-toggle" onClick={() => setShowLoginPassword((visible) => !visible)} aria-label={showLoginPassword ? "Hide password" : "Show password"} aria-pressed={showLoginPassword}>
+                  {showLoginPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                </button>
+              </div>
+            </div>
+            <button type="button" className="forgot-password-link" onClick={() => toast.info("Password reset is not available yet. Please contact your administrator.")}>Forgot password?</button>
             <button className="auth-submit-button" type="submit" disabled>Sign In</button>
+            <p className="auth-switch-text">Don't have an account? <button type="button" className="link-button" data-auth-mode="signup">Sign Up</button></p>
             <div className="form-error" data-auth-error="login" role="alert"></div>
           </div>
         </form>
@@ -36,7 +52,7 @@ export default function SignIn() {
             <button className="role-card" type="button" data-role-option="adviser" aria-pressed="false">OJT Adviser / Dean</button>
             <button className="role-card" type="button" data-role-option="spards" aria-pressed="false">Admin</button>
           </div>
-          <div className="student-id-box" id="student-id-box"><label htmlFor="signup-student-id">ID Number</label><input id="signup-student-id" name="studentNumber" type="text" placeholder="e.g. 23-1924" inputMode="numeric" autoComplete="off" maxLength={7} pattern="[0-9]{2}-[0-9]{4}" aria-describedby="student-id-hint" required /><span className="student-id-hint" id="student-id-hint">Enter 2 digits, then 4 digits.</span></div>
+          <div className="student-id-box" id="student-id-box"><label htmlFor="signup-student-id">Student ID Number</label><input id="signup-student-id" name="studentNumber" type="text" placeholder="e.g. 23-1924" inputMode="numeric" autoComplete="off" maxLength={7} pattern="[0-9]{2}-[0-9]{4}" aria-describedby="student-id-hint" required /><span className="student-id-hint" id="student-id-hint">Enter 2 digits, then 4 digits.</span></div>
           <div className="student-academic-fields" id="student-academic-fields">
             <div className="auth-field catalog-field">
               <label htmlFor="signup-college">Department / College</label>
@@ -53,9 +69,20 @@ export default function SignIn() {
               <input id="signup-year-level" name="yearLevel" type="text" placeholder="Selected automatically" disabled />
             </div>
           </div>
-          <div className="auth-field"><label htmlFor="signup-name">Full Name</label><input id="signup-name" name="name" type="text" placeholder="Enter your last name" required /></div>
+          <div className="signup-name-fields">
+            <div className="auth-field"><label htmlFor="signup-first-name">First Name</label><input id="signup-first-name" name="firstName" type="text" placeholder="Enter your first name" maxLength={100} required /></div>
+            <div className="auth-field"><label htmlFor="signup-last-name">Last Name</label><input id="signup-last-name" name="lastName" type="text" placeholder="Enter your last name" maxLength={100} required /></div>
+          </div>
           <div className="auth-field"><label htmlFor="signup-email">Email Address</label><input id="signup-email" name="email" type="email" placeholder="yourname@qcu.edu.ph" required /></div>
-          <div className="auth-field"><label htmlFor="signup-password">Password</label><input id="signup-password" name="password" type="password" placeholder="Enter your password" minLength={6} required /></div>
+          <div className="auth-field">
+            <label htmlFor="signup-password">Password</label>
+            <div className="auth-password-wrap">
+              <input id="signup-password" name="password" type={showSignupPassword ? "text" : "password"} placeholder="Enter your password" minLength={6} required />
+              <button type="button" className="password-visibility-toggle" onClick={() => setShowSignupPassword((visible) => !visible)} aria-label={showSignupPassword ? "Hide password" : "Show password"} aria-pressed={showSignupPassword}>
+                {showSignupPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+              </button>
+            </div>
+          </div>
           <label className="terms-check"><input type="checkbox" name="terms" required /><span>By signing up, you agree to our <a href="#">Terms and Conditions</a> and <a href="#">Privacy Policy</a></span></label>
           <button className="auth-submit-button" type="submit" disabled>Sign Up</button>
           <p className="auth-switch-text">Already have an account? <button type="button" className="link-button" data-auth-mode="login">Sign In</button></p>

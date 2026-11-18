@@ -27,8 +27,8 @@ model User {
 }
 
 model StudentProfile {
-  userId         String   @id
-  studentNumber  String   @unique
+  userId         String   @unique
+  studentNumber  String   @id
   programId      String
   contactNumber  String?
   streetAddress  String?

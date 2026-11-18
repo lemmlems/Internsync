@@ -599,29 +599,74 @@ td strong { color: #24365d; font-size: 11px; }
 .auth-field, .student-id-box { gap: 4px; margin: 0 0 12px; }
 .auth-field label, .student-id-box label { margin: 0 0 4px; font-size: 12px; }
 .auth-field input, .student-id-box input { height: 36px; font-size: 11px; border: 0; border-radius: 6px; background: #fff; }
+.auth-password-wrap { position: relative; width: 100%; }
+.auth-password-wrap input { width: 100%; padding-right: 42px; }
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  color: #64708a;
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.password-visibility-toggle:hover { color: #263a72; background: #e9ebf1; }
+.password-visibility-toggle svg { width: 17px; height: 17px; }
 .auth-form#login-form .auth-field { margin: 0 0 12px; }
 .auth-form#login-form .auth-field label { color: #fff; }
 .auth-switch-text { margin: 0; color: #d1d5db; font-size: 11px; text-align: left; }
 .auth-form#login-form .auth-switch-text { color: #d1d5db; }
 .auth-form#login-form .link-button { color: #4f6ef7; }
-.auth-submit-button { display: flex; width: 160px; min-height: 36px; margin: 22px auto 0; justify-content: center; align-items: center; border: 0; border-radius: 6px; color: #111827; background: #facc15; font-size: 11px; font-weight: 800; }
-.auth-submit-button:disabled {
+.forgot-password-link {
+  display: block;
+  margin: -2px 0 12px auto;
+  padding: 0;
+  border: 0;
+  color: #7792ff;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+.forgot-password-link:hover { color: #b7c4ff; text-decoration: underline; }
+.auth-form#login-form .auth-submit-button {
+  width: 100%;
+  min-height: 48px;
+  margin: 12px 0 0;
+  border-radius: 16px;
+  font-size: 13px;
+}
+.auth-form#login-form .auth-switch-text { margin: 12px 0 0; text-align: center; }
+.auth-submit-button {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  margin: 18px 0 0;
+  justify-content: center;
+  align-items: center;
+  border: 0;
+  border-radius: 16px;
+  color: #111827;
+  background: #facc15;
+  font-size: 13px;
+  font-weight: 800;
+}
+.auth-submit-button:disabled,
+.auth-submit-button:disabled:hover,
+.auth-submit-button:disabled:active {
   cursor: not-allowed;
-  opacity: .42;
+  opacity: 1;
+  color: #737373;
+  background: #e5e5e2;
   box-shadow: none;
   transform: none;
   transition: none;
-}
-.auth-form#login-form .auth-submit-button:disabled {
-  opacity: 1;
-  color: #111827;
-  background: #facc15;
-}
-.auth-submit-button:disabled:hover,
-.auth-submit-button:disabled:active {
-  background: #f5df28;
-  box-shadow: none;
-  transform: none;
 }
 .auth-form#signup-form { padding-top: 16px; }
 .signup-subtitle { margin-bottom: 14px; font-size: 11px; }
@@ -690,6 +735,14 @@ td strong { color: #24365d; font-size: 11px; }
   border-radius: 6px;
   font-size: 12px;
 }
+.auth-form#signup-form .signup-name-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.auth-form#signup-form .signup-name-fields .auth-field {
+  min-width: 0;
+}
 .student-academic-fields[hidden] { display: none; }
 .student-academic-fields.catalog-open { z-index: 25; }
 .catalog-field { position: relative; }
@@ -757,16 +810,11 @@ td strong { color: #24365d; font-size: 11px; }
 .auth-form#signup-form .terms-check input { margin: 2px 0 0; }
 .auth-form#signup-form .terms-check a { color: #7792ff; }
 .auth-form#signup-form .auth-submit-button {
-  width: 150px;
-  min-height: 36px;
-  margin: 18px auto 0;
-  border-radius: 6px;
-  font-size: 11px;
-}
-.auth-form#signup-form .auth-submit-button:disabled {
-  opacity: 1;
-  color: #111827;
-  background: #facc15;
+  width: 100%;
+  min-height: 48px;
+  margin: 18px 0 0;
+  border-radius: 16px;
+  font-size: 13px;
 }
 .auth-form#signup-form .auth-switch-text { color: #d1d5db; font-size: 10px; }
 
