@@ -4,13 +4,17 @@ import { createElement, Fragment } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import StudentDashboard from "./src/components/views/student-dashboard";
+import RoleDashboard from "./src/components/views/role-dashboard";
 import DocumentsView from "./src/components/views/documents";
 import ReviewView from "./src/components/views/review";
-import { NAV_ITEMS_BY_ROLE } from "./src/lib/nav-config";
+import { HOME_PAGE_BY_ROLE, NAV_ITEMS_BY_ROLE } from "./src/lib/nav-config";
+import { formatDate } from "./src/lib/formatters";
+import { getInitials } from "./src/lib/helpers";
+import { isRequired, isValidStudentId, validateFileSize, validateFileType, validatePassword } from "./src/lib/validations";
 
 const roleDetails = {
   student: { label: "Student", name: "Sofia Reyes", initials: "SR", title: "QCU Student", workspace: "STUDENT WORKSPACE", helpTitle: "Your OJT, in one place", helpCopy: "View requirements, submit your work, and track adviser feedback." },
-  adviser: { label: "OJT Adviser", name: "Jamie Dela Cruz", initials: "JD", title: "OJT Adviser", workspace: "ADVISER WORKSPACE", helpTitle: "Keep students on track", helpCopy: "Post classroom work and review student submissions." },
+  adviser: { label: "OJT Adviser", name: "Jamie Dela Cruz", initials: "JD", title: "OJT Adviser", workspace: "ADVISER WORKSPACE", helpTitle: "Keep students on track", helpCopy: "Post requirements and review student submissions." },
   spards: { label: "SPARDS", name: "SPARDS Office", initials: "SP", title: "Document reviewer", workspace: "SPARDS WORKSPACE", helpTitle: "Placement documents", helpCopy: "View adviser-approved submissions and student MOA/MOU documents." }
 };
 
@@ -21,9 +25,10 @@ const defaultAccounts = [
 ];
 
 const savedRole = localStorage.getItem("internsync-demo-role") || "student";
+const initialRole = Object.prototype.hasOwnProperty.call(roleDetails, savedRole) ? savedRole : "student";
 const state = {
-  role: savedRole,
-  page: savedRole === "student" ? "student-dashboard" : "classroom",
+  role: initialRole,
+  page: HOME_PAGE_BY_ROLE[initialRole],
   requirements: [],
   submissions: [],
   summary: {},
@@ -37,8 +42,6 @@ const appRoots = window.__internsyncReactRoots || (window.__internsyncReactRoots
 const pageRootEntry = appRoots.page?.container === pageContent ? appRoots.page : null;
 const pageRoot = pageRootEntry?.root || createRoot(pageContent);
 appRoots.page = { container: pageContent, root: pageRoot };
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const allowedExtensions = /\.(pdf|doc|docx|txt|jpg|jpeg|png)$/i;
 
 function getAccounts() {
   try {
@@ -165,10 +168,6 @@ function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
-function formatDate(value) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
-}
 function requirementFor(id) { return state.requirements.find((requirement) => requirement.id === id); }
 function submissionFor(requirementId) { return state.submissions.find((submission) => submission.requirementId === requirementId && submission.documentType === "assignment"); }
 
@@ -259,13 +258,14 @@ function setNavigation() {
 function renderPage() {
   const labels = {
     "student-dashboard": "Dashboard",
+    "adviser-dashboard": "Dashboard",
+    "spards-dashboard": "Dashboard",
     "ojt-hours": "OJT Hours Log",
     "requirements-progress": "Requirements Progress",
     "partner-companies": "Partner Companies",
     "my-ojt": "My OJT",
     "moa-moa": "MOU/MOA",
     reflection: "Reflection",
-    classroom: state.role === "adviser" ? "Classroom" : "Overview",
     documents: "Documents",
     review: "Review submissions"
   };
@@ -279,10 +279,16 @@ function renderPage() {
       "moa-moa": "MOU/MOA",
       reflection: "Reflection"
     },
-    adviser: { classroom: "OJT Adviser Dashboard", review: "Review Submissions" },
-    spards: { classroom: "SPARDS Dashboard", documents: "Document Review" }
+    adviser: { "adviser-dashboard": "OJT Adviser Dashboard", review: "Review Submissions" },
+    spards: { "spards-dashboard": "SPARDS Dashboard", documents: "Document Review" }
   };
-  const views = { "student-dashboard": StudentDashboard, classroom: StudentDashboard, documents: DocumentsView, review: ReviewView };
+  const views = {
+    "student-dashboard": StudentDashboard,
+    "adviser-dashboard": RoleDashboard,
+    "spards-dashboard": RoleDashboard,
+    documents: DocumentsView,
+    review: ReviewView
+  };
   const View = views[state.page] || StudentDashboard;
   const currentPageLabel = labels[state.page] || labels["student-dashboard"];
   const workspaceHeading = document.getElementById("workspace-heading");
@@ -308,7 +314,7 @@ function openRequirementModal() {
   const backdrop = document.getElementById("modal-backdrop");
   const workflowModal = document.getElementById("workflow-modal");
   if (workflowModal) {
-    workflowModal.innerHTML = `<div class="modal-heading"><div><span class="eyebrow">CLASSROOM</span><h2 id="modal-title">Post a requirement</h2></div><button class="icon-button close-modal" aria-label="Close">×</button></div><p class="modal-intro">Students in your OJT classroom will be able to see and respond to this requirement.</p><form id="requirement-form"><label class="field-label" for="requirement-title">Requirement title</label><input class="form-control" id="requirement-title" name="title" maxlength="120" placeholder="e.g. Monthly OJT journal" required><label class="field-label" for="requirement-description">Instructions</label><textarea class="form-control answer-input" id="requirement-description" name="description" maxlength="2000" placeholder="Explain what students need to submit..." required></textarea><label class="field-label" for="requirement-due">Due date</label><input class="form-control" id="requirement-due" name="dueDate" type="date" required><div class="form-error" role="alert"></div><div class="modal-actions"><button type="button" class="button button-quiet close-modal">Cancel</button><button type="submit" class="button button-primary">Post requirement <span>↗</span></button></div></form>`;
+    workflowModal.innerHTML = `<div class="modal-heading"><div><span class="eyebrow">OJT REQUIREMENTS</span><h2 id="modal-title">Post a requirement</h2></div><button class="icon-button close-modal" aria-label="Close">×</button></div><p class="modal-intro">Students will be able to see and respond to this requirement from their dashboard.</p><form id="requirement-form"><label class="field-label" for="requirement-title">Requirement title</label><input class="form-control" id="requirement-title" name="title" maxlength="120" placeholder="e.g. Monthly OJT journal" required><label class="field-label" for="requirement-description">Instructions</label><textarea class="form-control answer-input" id="requirement-description" name="description" maxlength="2000" placeholder="Explain what students need to submit..." required></textarea><label class="field-label" for="requirement-due">Due date</label><input class="form-control" id="requirement-due" name="dueDate" type="date" required><div class="form-error" role="alert"></div><div class="modal-actions"><button type="button" class="button button-quiet close-modal">Cancel</button><button type="submit" class="button button-primary">Post requirement <span>↗</span></button></div></form>`;
   }
   if (backdrop) backdrop.hidden = false;
   const requirementTitle = document.getElementById("requirement-title");
@@ -322,8 +328,10 @@ function closeModal() {
 
 function readFile(file) {
   if (!file || !file.name) return Promise.resolve(null);
-  if (!allowedExtensions.test(file.name)) throw new Error("Choose a PDF, Word, TXT, JPG, or PNG document.");
-  if (file.size > MAX_FILE_BYTES) throw new Error("The document must be 5 MB or smaller.");
+  const typeValidation = validateFileType(file);
+  if (!typeValidation.valid) throw new Error(typeValidation.message);
+  const sizeValidation = validateFileSize(file);
+  if (!sizeValidation.valid) throw new Error(sizeValidation.message);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve({ name: file.name, type: file.type || "application/octet-stream", data: reader.result });
@@ -359,7 +367,7 @@ document.addEventListener("click", async (event) => {
   const navigation = event.target.closest("[data-page]");
   if (navigation) {
     state.page = navigation.dataset.page === "dashboard"
-      ? state.role === "student" ? "student-dashboard" : "classroom"
+      ? HOME_PAGE_BY_ROLE[state.role]
       : navigation.dataset.page;
     state.filter = "All";
     state.search = "";
@@ -420,7 +428,7 @@ document.addEventListener("input", (event) => {
   if (event.target.matches("[data-search]") || event.target.matches(".search-box input")) {
     const isTopbar = event.target.closest(".search-box") !== null;
     state.search = event.target.value;
-    if (isTopbar && (state.page === "classroom" || state.page === "student-dashboard")) {
+    if (isTopbar && (state.page === "student-dashboard" || state.page === "adviser-dashboard" || state.page === "spards-dashboard")) {
       state.page = state.role === "adviser" ? "review" : state.role === "student" ? "requirements-progress" : "documents";
     }
     renderPage();
@@ -444,10 +452,12 @@ document.addEventListener("change", (event) => {
   }
   if (event.target.id !== "role-select" || !roleDetails[event.target.value]) return;
   state.role = event.target.value;
-  state.page = state.role === "student" ? "student-dashboard" : "classroom";
+  state.page = HOME_PAGE_BY_ROLE[state.role];
   state.filter = "All";
   state.search = "";
   localStorage.setItem("internsync-demo-role", state.role);
+  updateProfile();
+  renderPage();
   loadData().catch((error) => showToast(error.message));
 });
 
@@ -476,11 +486,12 @@ document.addEventListener("submit", async (event) => {
     const session = { name: account.name, email: account.email, role: account.role, initials: account.initials || (account.name || "").split(" ").map((part) => part[0]).slice(0, 2).join(""), title: account.title || roleDetails[account.role].title };
     saveSession(session);
     state.role = account.role;
-    state.page = account.role === "student" ? "student-dashboard" : "classroom";
+    state.page = HOME_PAGE_BY_ROLE[account.role];
     localStorage.setItem("internsync-demo-role", account.role);
     updateAuthView();
     updateProfile();
-    await loadData();
+    renderPage();
+    await loadData().catch((loadError) => showToast(loadError.message));
     showToast(`Welcome back, ${account.name.split(" ")[0]}.`);
     return;
   }
@@ -492,11 +503,11 @@ document.addEventListener("submit", async (event) => {
     const password = form.password.value.trim();
     const role = state.selectedAuthRole || "student";
     const error = form.querySelector("[data-auth-error='signup']");
-    if (!name || !email || !password) {
+    if (!isRequired(name) || !isRequired(email) || !isRequired(password)) {
       error.textContent = "Enter your details to create an account.";
       return;
     }
-    if (role === "student" && !form.studentId.value.trim()) {
+    if (role === "student" && !isValidStudentId(form.studentId.value)) {
       error.textContent = "Student ID is required for student accounts.";
       return;
     }
@@ -505,8 +516,9 @@ document.addEventListener("submit", async (event) => {
       error.textContent = "An account with this email already exists.";
       return;
     }
-    if (password.length < 6) {
-      error.textContent = "Use at least 6 characters for your password.";
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      error.textContent = passwordValidation.message;
       return;
     }
     const newAccount = {
@@ -514,7 +526,7 @@ document.addEventListener("submit", async (event) => {
       email,
       password,
       role,
-      initials: name.split(" ").map((part) => part[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "U",
+      initials: getInitials(name) || "U",
       title: roleDetails[role].title
     };
     saveAccounts([...accounts, newAccount]);
@@ -522,12 +534,13 @@ document.addEventListener("submit", async (event) => {
     const session = { name: newAccount.name, email: newAccount.email, role: newAccount.role, initials: newAccount.initials, title: newAccount.title };
     saveSession(session);
     state.role = newAccount.role;
-    state.page = newAccount.role === "student" ? "student-dashboard" : "classroom";
+    state.page = HOME_PAGE_BY_ROLE[newAccount.role];
     localStorage.setItem("internsync-demo-role", newAccount.role);
     updateAuthView();
     updateAuthSubmitButtons();
     updateProfile();
-    await loadData();
+    renderPage();
+    await loadData().catch((loadError) => showToast(loadError.message));
     showToast(`Welcome, ${newAccount.name.split(" ")[0]}!`);
     return;
   }
@@ -542,7 +555,7 @@ document.addEventListener("submit", async (event) => {
       await api("/classroom/requirements", { method: "POST", body: JSON.stringify({ title: values.get("title"), description: values.get("description"), dueDate: values.get("dueDate") }) });
       closeModal();
       await refreshData();
-      showToast("Requirement posted to the classroom.");
+      showToast("Requirement posted successfully.");
     } catch (exception) {
       error.textContent = exception.message;
       submit.disabled = false;
@@ -587,17 +600,7 @@ document.addEventListener("keydown", (event) => {
 updateAuthView();
 
 if (getSession()) {
-  loadData().catch((error) => {
-    pageRoot.render(createElement(
-      "section",
-      { className: "panel empty-state" },
-      "We couldn’t connect to the InternSync classroom.",
-      createElement("br"),
-      createElement("br"),
-      error.message,
-      createElement("br"),
-      createElement("br"),
-      createElement("button", { className: "button button-quiet", onClick: () => location.reload() }, "Try again"),
-    ));
-  });
+  updateProfile();
+  renderPage();
+  loadData().catch((error) => showToast(error.message));
 }

@@ -7,19 +7,26 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
-function DialogOverlay({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>) {
-  return <DialogPrimitive.Overlay data-slot="dialog-overlay" className={cn("fixed inset-0 z-50 bg-black/50 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0", className)} {...props} />;
-}
+const DialogOverlay = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Overlay>, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>>(function DialogOverlay(
+  { className, ...props },
+  ref,
+) {
+  return <DialogPrimitive.Overlay ref={ref} data-slot="dialog-overlay" className={cn("fixed inset-0 z-50 bg-black/50 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0", className)} {...props} />;
+});
 
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   showClose?: boolean;
 };
 
-function DialogContent({ className, children, showClose = true, ...props }: DialogContentProps) {
+const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(function DialogContent(
+  { className, children, showClose = true, ...props },
+  ref,
+) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={ref}
         data-slot="dialog-content"
         className={cn("bg-background fixed left-[50%] top-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg", className)}
         {...props}
@@ -34,7 +41,7 @@ function DialogContent({ className, children, showClose = true, ...props }: Dial
       </DialogPrimitive.Content>
     </DialogPortal>
   );
-}
+});
 
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div data-slot="dialog-header" className={cn("flex flex-col gap-2 text-center sm:text-left", className)} {...props} />;
