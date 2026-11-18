@@ -396,7 +396,17 @@ function setSidebarOpen(open) {
   const sidebar = document.getElementById("sidebar");
   if (!sidebar) return;
   const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
-  sidebar.classList.toggle("open", open && !isDesktop);
+  const isOpen = open && !isDesktop;
+  sidebar.classList.toggle("open", isOpen);
+  sidebar.setAttribute("aria-hidden", String(!isDesktop && !isOpen));
+  sidebar.toggleAttribute("inert", !isDesktop && !isOpen);
+  const backdrop = document.getElementById("sidebar-backdrop");
+  if (backdrop) {
+    backdrop.hidden = !isOpen;
+    backdrop.setAttribute("aria-hidden", String(!isOpen));
+  }
+  document.getElementById("mobile-menu")?.setAttribute("aria-expanded", String(isOpen));
+  document.getElementById("mobile-menu")?.setAttribute("aria-label", isOpen ? "Close navigation menu" : "Open navigation menu");
 }
 
 window.addEventListener("resize", () => {
