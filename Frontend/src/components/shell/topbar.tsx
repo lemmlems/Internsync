@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, ChevronDown, LogOut, UserRound } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,7 +94,17 @@ export default function Topbar() {
   const unreadCount = visibleNotifications.length;
 
   return (
-    <header className="topbar sticky top-0 z-30 flex h-[76px] items-center justify-between gap-3 border-b border-[#dfe5ef] bg-[#f6f7fb] px-4 md:px-6">
+    <header className="topbar sticky top-0 z-30 flex h-[76px] items-center justify-between gap-2 border-b border-[#dfe5ef] bg-[#f6f7fb] px-3 md:gap-3 md:px-6">
+      <button
+        type="button"
+        id="mobile-menu"
+        className="mobile-menu grid size-9 shrink-0 place-items-center border-0 bg-transparent p-0 lg:hidden"
+        aria-label="Open navigation menu"
+        aria-controls="sidebar"
+      >
+        <Menu size={20} aria-hidden="true" />
+      </button>
+
       <div className="workspace-heading min-w-0 flex-1">
         <h1 className="m-0 truncate font-heading text-[18px] font-extrabold leading-none tracking-[-0.03em] text-[#1d2438] md:text-[20px]" id="workspace-heading">
           OJT Student Dashboard
@@ -155,7 +165,12 @@ export default function Topbar() {
             }
           }}
         >
-          <div className="top-profile flex items-center gap-2">
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="top-profile flex items-center gap-2 border-0 bg-transparent p-0 text-left"
+              aria-label={accountMenuOpen ? "Close account menu" : "Open account menu"}
+            >
               <span
                 className="top-avatar grid size-8 shrink-0 place-items-center rounded-full bg-[#e9ebfb] text-[11px] font-bold text-[#1d2438]"
                 id="topbar-avatar"
@@ -167,20 +182,17 @@ export default function Topbar() {
                 <span className="text-[12px] font-semibold leading-none text-[#1d2438]" id="topbar-name">Sofia Reyes</span>
                 <span className="mt-0.5 text-[10px] leading-none text-[#6c788d]" id="topbar-role">Student</span>
               </span>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="top-profile-chevron-trigger grid size-8 place-items-center border-0 bg-transparent p-0 text-[#6c788d] shadow-none"
-                  aria-label={accountMenuOpen ? "Close account menu" : "Open account menu"}
-                  type="button"
-                >
-                  <ChevronDown
-                    size={14}
-                    className={`top-profile-chevron transition-transform duration-200 ${accountMenuOpen ? "rotate-180" : "rotate-0"}`}
-                    aria-hidden="true"
-                  />
-                </button>
-              </DropdownMenuTrigger>
-          </div>
+              <span
+                className="top-profile-chevron-trigger grid size-8 place-items-center text-[#6c788d]"
+                aria-hidden="true"
+              >
+                <ChevronDown
+                  size={14}
+                  className={`top-profile-chevron transition-transform duration-200 ${accountMenuOpen ? "rotate-180" : "rotate-0"}`}
+                />
+              </span>
+            </button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={8} className="w-56 rounded-xl border-[#dfe5ef] bg-white p-1.5 text-[#1d2438] shadow-lg">
             <DropdownMenuLabel className="flex items-center gap-3 px-2.5 py-2.5 font-normal">
               <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e9ebfb] text-xs font-bold text-[#1d2438]">

@@ -549,6 +549,62 @@
   font-size: 13px;
 }
 
+@media (max-width: 560px) {
+  .topbar {
+    height: 68px;
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .workspace-heading h1 {
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workspace-heading p {
+    max-width: 210px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-actions {
+    gap: 2px;
+  }
+
+  .topbar-action-divider,
+  .top-profile-chevron-trigger {
+    display: none;
+  }
+
+  .top-profile {
+    gap: 0;
+  }
+
+  .top-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .notification-button {
+    display: grid;
+  }
+
+  .page-content {
+    padding: 12px 12px 28px;
+  }
+
+  .student-dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .student-dashboard-stat:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 700px) {
   .ojt-hours-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
