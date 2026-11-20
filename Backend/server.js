@@ -17,7 +17,7 @@ let prismaClient;
 
 const demoUsers = {
   student: { role: "student", userId: "STU-001", name: "Sofia Reyes", initials: "SR", title: "QCU Student" },
-  adviser: { role: "adviser", userId: "ADV-001", name: "Jamie Dela Cruz", initials: "JD", title: "OJT Adviser" },
+  adviser: { role: "adviser", userId: "ADV-001", name: "Juan Dela Cruz", initials: "JD", title: "OJT Adviser" },
   spards: { role: "spards", userId: "SPARDS-001", name: "SPARDS Office", initials: "SP", title: "SPARDS" }
 };
 
@@ -53,7 +53,8 @@ const initialData = {
     { id: "SUB-001", studentId: "STU-001", studentName: "Sofia Reyes", requirementId: "REQ-001", documentType: "assignment", answer: "This week I completed the product dashboard onboarding tasks and reviewed the design handoff with my supervisor.", fileName: "", storedFile: "", mimeType: "", submittedAt: "2026-10-28T08:30:00.000Z", status: "Pending adviser review", feedback: "" },
     { id: "SUB-002", studentId: "STU-001", studentName: "Sofia Reyes", requirementId: "REQ-002", documentType: "assignment", answer: "Please see my submitted midterm evaluation for review.", fileName: "", storedFile: "", mimeType: "", submittedAt: "2026-10-27T09:10:00.000Z", status: "Approved", feedback: "Reviewed. Thank you." },
     { id: "SUB-003", studentId: "STU-001", studentName: "Sofia Reyes", requirementId: "", documentType: "MOU", answer: "Signed company MOU submitted for SPARDS processing.", fileName: "", storedFile: "", mimeType: "", submittedAt: "2026-10-28T09:00:00.000Z", status: "Submitted to SPARDS", feedback: "" }
-  ]
+  ],
+  sectionMemberships: []
 };
 
 function readStore() {
@@ -64,7 +65,7 @@ function readStore() {
   }
   const store = JSON.parse(fs.readFileSync(STORE_FILE, "utf8"));
   let changed = false;
-  for (const key of ["requirements", "submissions"]) {
+  for (const key of ["requirements", "submissions", "sectionMemberships"]) {
     if (!Array.isArray(store[key])) {
       store[key] = initialData[key];
       changed = true;
@@ -135,6 +136,158 @@ function requireRole(request, response, allowedRoles) {
     return null;
   }
   return user;
+}
+
+async function requestRoleUser(request, response, allowedRoles) {
+  if (request.headers.authorization) {
+    const session = await findAuthenticatedStudent(request);
+    if (!session) {
+      sendJson(response, 401, { error: "Your student session is invalid or has expired." });
+      return null;
+    }
+    const user = {
+      role: "student",
+      userId: session.userId,
+      name: formatStudentName(session.user),
+      title: "QCU Student"
+    };
+    if (!allowedRoles.includes(user.role)) {
+      sendJson(response, 403, { error: "This action is not available for your selected role." });
+      return null;
+    }
+    return user;
+  }
+  return requireRole(request, response, allowedRoles);
+}
+
+async function requestStudentUser(request, response) {
+  if (request.headers.authorization) {
+    const session = await findAuthenticatedStudent(request);
+    if (!session) {
+      sendJson(response, 401, { error: "Your student session is invalid or has expired." });
+      return null;
+    }
+    return {
+      role: "student",
+      userId: session.userId,
+      name: formatStudentName(session.user),
+      title: "QCU Student",
+      profile: session.user.studentProfile
+    };
+  }
+
+  const user = requireRole(request, response, ["student"]);
+  return user ? { ...user, isDemo: true } : null;
+}
+
+function publicSection(section) {
+  return {
+    id: section.id,
+    letter: section.letter,
+    yearLevel: section.yearLevel,
+    code: `${section.program.code}-${section.yearLevel}${section.letter}`,
+    joinCode: section.joinCode || "",
+    colorTheme: section.colorTheme || null,
+    programId: section.program.id,
+    programCode: section.program.code,
+    programName: section.program.name,
+    collegeId: section.program.college.id,
+    collegeName: section.program.college.name
+  };
+}
+
+function createSectionJoinCode() {
+  const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+  function segment() {
+    return Array.from({ length: 3 }, () => alphabet[crypto.randomInt(alphabet.length)]).join("");
+  }
+  return `${segment()}-${segment()}-${segment()}`;
+}
+
+const SECTION_COLOR_THEMES = new Set(["indigo", "blue", "rose", "yellow", "orange", "red"]);
+
+async function ensureSectionJoinCode(prisma, section) {
+  if (section.joinCode) return section.joinCode;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const joinCode = createSectionJoinCode();
+    try {
+      await prisma.section.updateMany({
+        where: { id: section.id, joinCode: null },
+        data: { joinCode }
+      });
+      const saved = await prisma.section.findUnique({
+        where: { id: section.id },
+        select: { joinCode: true }
+      });
+      if (saved?.joinCode) return saved.joinCode;
+    } catch (error) {
+      if (error.code !== "P2002") throw error;
+    }
+  }
+  throw new Error(`Could not assign a unique join code to section ${section.id}.`);
+}
+
+function calculateSectionProgress(studentIds, tasks, submissions) {
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const students = studentIds.map((studentId) => {
+    const completedTaskIds = new Set(
+      submissions
+        .filter((submission) =>
+          submission.studentId === studentId
+          && submission.documentType === "assignment"
+          && taskIds.has(submission.requirementId)
+          && ["Pending adviser review", "Approved"].includes(submission.status),
+        )
+        .map((submission) => submission.requirementId),
+    );
+    const completedTasks = completedTaskIds.size;
+    const totalTasks = tasks.length;
+    const progress = totalTasks ? Math.round(completedTasks / totalTasks * 100) : 0;
+    const status = totalTasks > 0 && completedTasks === totalTasks
+      ? "Completed"
+      : completedTasks > 0 ? "Active" : "Pending";
+    return {
+      studentId,
+      completedTaskIds: [...completedTaskIds],
+      completedTasks,
+      totalTasks,
+      progress,
+      status,
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        completed: completedTaskIds.has(task.id)
+      }))
+    };
+  });
+  const studentCount = students.length;
+  const progress = studentCount
+    ? Math.round(students.reduce((sum, student) => sum + student.progress, 0) / studentCount)
+    : 0;
+  const taskProgress = tasks.map((task) => {
+    const completedStudents = students.filter((student) => student.completedTaskIds.includes(task.id)).length;
+    return {
+      id: task.id,
+      title: task.title,
+      completedStudents,
+      studentCount,
+      progress: studentCount ? Math.round(completedStudents / studentCount * 100) : 0
+    };
+  });
+  return {
+    studentCount,
+    activeCount: students.filter((student) => student.status === "Active").length,
+    completedCount: students.filter((student) => student.status === "Completed").length,
+    pendingCount: students.filter((student) => student.status === "Pending").length,
+    progress,
+    tasks: taskProgress,
+    students
+  };
+}
+
+function getSchoolYear() {
+  const currentYear = new Date().getFullYear();
+  return `${currentYear}-${currentYear + 1}`;
 }
 
 function visibleToRole(submission, role, userId) {
@@ -474,6 +627,96 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (pathname === "/api/students/section") {
+    try {
+      const user = await requestStudentUser(request, response);
+      if (!user) return;
+      const prisma = getPrismaClient();
+
+      if (request.method === "GET") {
+        if (user.isDemo) {
+          const membership = store.sectionMemberships.find((item) => item.studentId === user.userId);
+          if (!membership) {
+            sendJson(response, 200, { section: null });
+            return;
+          }
+          const section = await prisma.section.findUnique({
+            where: { id: membership.sectionId },
+            include: { program: { include: { college: true } } }
+          });
+          if (section) section.joinCode = await ensureSectionJoinCode(prisma, section);
+          sendJson(response, 200, { section: section ? publicSection(section) : null });
+          return;
+        }
+
+        const profile = await prisma.studentProfile.findUnique({
+          where: { userId: user.userId },
+          include: { section: { include: { program: { include: { college: true } } } } }
+        });
+        if (profile?.section) profile.section.joinCode = await ensureSectionJoinCode(prisma, profile.section);
+        sendJson(response, 200, { section: profile?.section ? publicSection(profile.section) : null });
+        return;
+      }
+
+      if (request.method === "POST") {
+        const body = await readBody(request);
+        const code = typeof body.sectionCode === "string" ? body.sectionCode.trim().toLowerCase() : "";
+        const isJoinCode = /^[a-z0-9]{3}(?:-[a-z0-9]{3}){2}$/.test(code);
+        const legacyMatch = code.toUpperCase().match(/^([A-Z0-9]+)-(\d{1,2})([A-Z])$/);
+        if (!isJoinCode && !legacyMatch) {
+          sendJson(response, 400, { error: "Enter the three-part join code provided by your OJT adviser." });
+          return;
+        }
+        let section = isJoinCode
+          ? await prisma.section.findUnique({
+            where: { joinCode: code },
+            include: { program: { include: { college: true } } }
+          })
+          : null;
+        if (!section) {
+          if (legacyMatch) {
+            section = await prisma.section.findFirst({
+              where: {
+                yearLevel: Number(legacyMatch[2]),
+                letter: legacyMatch[3],
+                program: { code: legacyMatch[1] }
+              },
+              include: { program: { include: { college: true } } }
+            });
+          }
+        }
+        if (!section) {
+          sendJson(response, 404, { error: "That section code was not found. Check the three-part code and try again." });
+          return;
+        }
+        section.joinCode = await ensureSectionJoinCode(prisma, section);
+
+        if (user.isDemo) {
+          store.sectionMemberships = store.sectionMemberships.filter((item) => item.studentId !== user.userId);
+          store.sectionMemberships.push({ studentId: user.userId, sectionId: section.id });
+          saveStore(store);
+        } else {
+          if (user.profile.programId !== section.programId) {
+            sendJson(response, 403, { error: "You can only join a section for your registered program." });
+            return;
+          }
+          await prisma.studentProfile.update({
+            where: { userId: user.userId },
+            data: { sectionId: section.id }
+          });
+        }
+        sendJson(response, 200, { section: publicSection(section) });
+        return;
+      }
+
+      sendJson(response, 405, { error: "Method not allowed." });
+    } catch (error) {
+      console.error("Student section request failed:", error);
+      sendJson(response, 500, { error: "Student section could not be loaded or updated." });
+    }
+    return;
+  }
+
   if (pathname === "/api/students/profile") {
     try {
       const session = await findAuthenticatedStudent(request);
@@ -552,6 +795,7 @@ const server = http.createServer(async (request, response) => {
                 update: {
                   studentNumber,
                   programId: program.id,
+                  ...(program.id !== session.user.studentProfile.programId ? { sectionId: null } : {}),
                   contactNumber: contactNumber || null,
                   streetAddress: streetAddress || null,
                   barangay: barangayRecord.name,
@@ -590,7 +834,7 @@ const server = http.createServer(async (request, response) => {
           name: true,
           ojtYearLevel: true,
           programs: {
-            select: { id: true, name: true },
+            select: { id: true, code: true, name: true },
             orderBy: { sortOrder: "asc" }
           }
         },
@@ -637,9 +881,179 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 200, { user, roles: Object.values(demoUsers) });
         return;
       }
+      const sectionJoinCodeMatch = pathname.match(/^\/api\/sections\/([A-Za-z0-9_-]+)\/join-code$/);
+      if (request.method === "PATCH" && sectionJoinCodeMatch) {
+        const user = requireRole(request, response, ["adviser"]);
+        if (!user) return;
+        const prisma = getPrismaClient();
+        const section = await prisma.section.findUnique({
+          where: { id: sectionJoinCodeMatch[1] },
+          select: { id: true, joinCode: true }
+        });
+        if (!section) {
+          sendJson(response, 404, { error: "Section not found." });
+          return;
+        }
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const joinCode = createSectionJoinCode();
+          if (joinCode === section.joinCode) continue;
+          try {
+            const updated = await prisma.section.update({
+              where: { id: section.id },
+              data: { joinCode },
+              select: { joinCode: true }
+            });
+            sendJson(response, 200, { joinCode: updated.joinCode });
+            return;
+          } catch (error) {
+            if (error.code !== "P2002") throw error;
+          }
+        }
+        throw new Error(`Could not assign a unique join code to section ${section.id}.`);
+      }
+      const sectionColorMatch = pathname.match(/^\/api\/sections\/([A-Za-z0-9_-]+)\/color$/);
+      if (request.method === "PATCH" && sectionColorMatch) {
+        const user = requireRole(request, response, ["adviser"]);
+        if (!user) return;
+        const body = await readBody(request);
+        if (typeof body.colorTheme !== "string" || !SECTION_COLOR_THEMES.has(body.colorTheme)) {
+          sendJson(response, 400, { error: "Choose a valid section color." });
+          return;
+        }
+        const prisma = getPrismaClient();
+        const existing = await prisma.section.findUnique({
+          where: { id: sectionColorMatch[1] },
+          select: { id: true }
+        });
+        if (!existing) {
+          sendJson(response, 404, { error: "Section not found." });
+          return;
+        }
+        const section = await prisma.section.update({
+          where: { id: existing.id },
+          data: { colorTheme: body.colorTheme },
+          select: { colorTheme: true }
+        });
+        sendJson(response, 200, { colorTheme: section.colorTheme });
+        return;
+      }
+      const sectionDetailMatch = pathname.match(/^\/api\/sections\/([A-Za-z0-9_-]+)$/);
+      if (request.method === "GET" && sectionDetailMatch) {
+        const user = requireRole(request, response, ["adviser"]);
+        if (!user) return;
+        const prisma = getPrismaClient();
+        const section = await prisma.section.findUnique({
+          where: { id: sectionDetailMatch[1] },
+          include: { program: { include: { college: true } } }
+        });
+        if (!section) {
+          sendJson(response, 404, { error: "Section not found." });
+          return;
+        }
+        section.joinCode = await ensureSectionJoinCode(prisma, section);
+        const [profiles, demoMemberships] = await Promise.all([
+          prisma.studentProfile.findMany({
+            where: { sectionId: section.id },
+            include: { user: true },
+            orderBy: { studentNumber: "asc" }
+          }),
+          Promise.resolve(store.sectionMemberships.filter((item) => item.sectionId === section.id))
+        ]);
+        const profilesById = new Map(profiles.map((profile) => [profile.userId, profile]));
+        const studentIds = [
+          ...profiles.map((profile) => profile.userId),
+          ...demoMemberships
+            .map((membership) => membership.studentId)
+            .filter((studentId) => !profilesById.has(studentId))
+        ];
+        const completion = calculateSectionProgress(studentIds, store.requirements, store.submissions);
+        const progressById = new Map(completion.students.map((student) => [student.studentId, student]));
+        const students = profiles.map((profile) => {
+          const progress = progressById.get(profile.userId);
+          return {
+            id: profile.userId,
+            studentNumber: profile.studentNumber,
+            name: formatStudentName(profile.user),
+            sectionCode: `${section.program.code}-${section.yearLevel}${section.letter}`,
+            company: profile.partnerCompany || "",
+            ...progress
+          };
+        });
+        for (const membership of demoMemberships) {
+          if (profilesById.has(membership.studentId)) continue;
+          const demoStudent = Object.values(demoUsers).find((candidate) => candidate.userId === membership.studentId);
+          const progress = progressById.get(membership.studentId);
+          if (!demoStudent || demoStudent.role !== "student" || !progress) continue;
+          students.push({
+            id: membership.studentId,
+            studentNumber: membership.studentId,
+            name: demoStudent.name,
+            sectionCode: `${section.program.code}-${section.yearLevel}${section.letter}`,
+            company: "",
+            ...progress
+          });
+        }
+        const { students: _studentProgress, ...stats } = completion;
+        sendJson(response, 200, {
+          section: publicSection(section),
+          schoolYear: getSchoolYear(),
+          stats,
+          students
+        });
+        return;
+      }
+      if (request.method === "GET" && pathname === "/api/sections") {
+        const user = requireRole(request, response, ["adviser"]);
+        if (!user) return;
+        const prisma = getPrismaClient();
+        const [sections, enrolledStudents] = await Promise.all([
+          prisma.section.findMany({
+            include: { program: { include: { college: true } } },
+            orderBy: [{ yearLevel: "asc" }, { letter: "asc" }]
+          }),
+          prisma.studentProfile.findMany({
+            where: { sectionId: { not: null } },
+            select: { userId: true, sectionId: true }
+          })
+        ]);
+        const studentIdsBySection = new Map();
+        function addStudent(sectionId, studentId) {
+          if (!sectionId || !studentId) return;
+          if (!studentIdsBySection.has(sectionId)) studentIdsBySection.set(sectionId, new Set());
+          studentIdsBySection.get(sectionId).add(studentId);
+        }
+        for (const student of enrolledStudents) addStudent(student.sectionId, student.userId);
+        for (const membership of store.sectionMemberships) addStudent(membership.sectionId, membership.studentId);
+
+        sendJson(response, 200, {
+          sections: sections.map((section) => {
+            const studentIds = [...(studentIdsBySection.get(section.id) || [])];
+            const progress = calculateSectionProgress(studentIds, store.requirements, store.submissions);
+            return {
+              id: section.id,
+              letter: section.letter,
+              yearLevel: section.yearLevel,
+              code: `${section.program.code}-${section.yearLevel}${section.letter}`,
+              colorTheme: section.colorTheme || null,
+              programId: section.program.id,
+              programCode: section.program.code,
+              programName: section.program.name,
+              collegeId: section.program.college.id,
+              collegeName: section.program.college.name,
+              studentCount: progress.studentCount,
+              activeCount: progress.activeCount,
+              completedCount: progress.completedCount,
+              pendingCount: progress.pendingCount,
+              progress: progress.progress,
+              tasks: progress.tasks
+            };
+          })
+        });
+        return;
+      }
       if (pathname.startsWith("/api/classroom/")) {
         if (request.method === "GET" && pathname === "/api/classroom/summary") {
-          const user = requireRole(request, response, ["student", "adviser", "spards"]);
+          const user = await requestRoleUser(request, response, ["student", "adviser", "spards"]);
           if (!user) return;
           const submissions = store.submissions.filter((item) => visibleToRole(item, user.role, user.userId));
           sendJson(response, 200, {
@@ -675,13 +1089,13 @@ const server = http.createServer(async (request, response) => {
           return;
         }
         if (request.method === "GET" && pathname === "/api/classroom/submissions") {
-          const user = requireRole(request, response, ["student", "adviser", "spards"]);
+          const user = await requestRoleUser(request, response, ["student", "adviser", "spards"]);
           if (!user) return;
           sendJson(response, 200, store.submissions.filter((item) => visibleToRole(item, user.role, user.userId)).map(publicSubmission));
           return;
         }
         if (request.method === "POST" && pathname === "/api/classroom/submissions") {
-          const user = requireRole(request, response, ["student"]);
+          const user = await requestRoleUser(request, response, ["student"]);
           if (!user) return;
           const body = await readBody(request);
           const documentType = ["assignment", "MOA", "MOU"].includes(body.documentType) ? body.documentType : "";
@@ -768,7 +1182,7 @@ const server = http.createServer(async (request, response) => {
         }
         const fileMatch = pathname.match(/^\/api\/classroom\/submissions\/([A-Za-z0-9-]+)\/file$/);
         if (request.method === "GET" && fileMatch) {
-          const user = requireRole(request, response, ["student", "adviser", "spards"]);
+          const user = await requestRoleUser(request, response, ["student", "adviser", "spards"]);
           if (!user) return;
           const submission = store.submissions.find((item) => item.id === fileMatch[1]);
           if (!submission || !visibleToRole(submission, user.role, user.userId) || !submission.storedFile) {

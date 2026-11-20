@@ -10,20 +10,79 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
+export type StudentSection = {
+  id: string;
+  code: string;
+  joinCode: string;
+  yearLevel: number;
+  programName: string;
+  collegeName: string;
+};
+
+export function isStudentSection(value: unknown): value is StudentSection {
+  return typeof value === "object"
+    && value !== null
+    && !Array.isArray(value)
+    && "id" in value
+    && typeof value.id === "string"
+    && "code" in value
+    && typeof value.code === "string"
+    && "joinCode" in value
+    && typeof value.joinCode === "string"
+    && "yearLevel" in value
+    && typeof value.yearLevel === "number"
+    && "programName" in value
+    && typeof value.programName === "string"
+    && "collegeName" in value
+    && typeof value.collegeName === "string";
+}
+
 type ModalSectionProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onJoined: (section: StudentSection) => void;
 };
 
-export default function ModalSection({ open, onOpenChange }: ModalSectionProps) {
+export default function ModalSection({ open, onOpenChange, onJoined }: ModalSectionProps) {
   const [sectionCode, setSectionCode] = useState("");
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!sectionCode.trim()) return;
 
-    setMessage("Section joining is not connected yet. Please contact your OJT adviser.");
+    setSaving(true);
+    setMessage("");
+    try {
+      let session: { accessToken?: string } | null = null;
+      try {
+        session = JSON.parse(sessionStorage.getItem("internsync-auth-session") || "null");
+      } catch (error) {
+        console.error("Could not read the student session.", error);
+        throw new Error("Your session could not be read. Please sign in again.");
+      }
+      const response = await fetch("/api/students/section", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Demo-Role": "student",
+          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+        },
+        body: JSON.stringify({ sectionCode }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not join this section.");
+      if (!isStudentSection(data.section)) {
+        throw new Error("The server returned an invalid section.");
+      }
+      onJoined(data.section);
+      handleOpenChange(false);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not join this section.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -31,6 +90,7 @@ export default function ModalSection({ open, onOpenChange }: ModalSectionProps) 
     if (!nextOpen) {
       setSectionCode("");
       setMessage("");
+      setSaving(false);
     }
   }
 
@@ -45,7 +105,7 @@ export default function ModalSection({ open, onOpenChange }: ModalSectionProps) 
             Enter Section Code
           </DialogTitle>
           <DialogDescription className="mt-2 text-[12px] leading-relaxed text-[#555]">
-            Ask your Professor for the section code, then enter it here.
+            Enter the three-part join code provided by your OJT adviser.
           </DialogDescription>
         </DialogHeader>
 
@@ -59,7 +119,8 @@ export default function ModalSection({ open, onOpenChange }: ModalSectionProps) 
               setSectionCode(event.target.value);
               setMessage("");
             }}
-            placeholder="Section Code"
+            placeholder="213-ewr-563"
+            disabled={saving}
             value={sectionCode}
           />
 
@@ -71,10 +132,10 @@ export default function ModalSection({ open, onOpenChange }: ModalSectionProps) 
 
           <Button
             className="mx-auto mt-3 flex h-[34px] w-[min(100%,160px)] rounded-md bg-[#151780] text-[12px] font-medium text-white shadow-none hover:bg-[#202596]"
-            disabled={!sectionCode.trim()}
+            disabled={!sectionCode.trim() || saving}
             type="submit"
           >
-            Join
+            {saving ? "Joining…" : "Join"}
           </Button>
 
           <Button

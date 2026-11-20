@@ -5,6 +5,8 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import StudentDashboard from "./src/components/views/student-dashboard";
 import RoleDashboard from "./src/components/views/role-dashboard";
+import AdviserProfile from "./src/components/views/adviser-profile";
+import AdviserSection from "./src/components/views/adviser-section";
 import DocumentsView from "./src/components/views/documents";
 import ReviewView from "./src/components/views/review";
 import { HOME_PAGE_BY_ROLE, NAV_ITEMS_BY_ROLE } from "./src/lib/nav-config";
@@ -15,13 +17,13 @@ import { isRequired, isValidStudentId, validateFileSize, validateFileType, valid
 
 const roleDetails = {
   student: { label: "Student", name: "Sofia Reyes", initials: "SR", title: "QCU Student", workspace: "STUDENT WORKSPACE", helpTitle: "Your OJT, in one place", helpCopy: "View requirements, submit your work, and track adviser feedback." },
-  adviser: { label: "OJT Adviser", name: "Jamie Dela Cruz", initials: "JD", title: "OJT Adviser", workspace: "ADVISER WORKSPACE", helpTitle: "Keep students on track", helpCopy: "Post requirements and review student submissions." },
+  adviser: { label: "OJT Adviser", name: "Juan Dela Cruz", initials: "JD", title: "OJT Adviser", workspace: "ADVISER WORKSPACE", helpTitle: "Keep students on track", helpCopy: "Post requirements and review student submissions." },
   spards: { label: "SPARDS", name: "SPARDS Office", initials: "SP", title: "Document reviewer", workspace: "SPARDS WORKSPACE", helpTitle: "Placement documents", helpCopy: "View adviser-approved submissions and student MOA/MOU documents." }
 };
 
 const defaultAccounts = [
   { name: "Sofia Reyes", email: "student@qcu.edu.ph", password: "student123", role: "student", initials: "SR", title: "QCU Student" },
-  { name: "Jamie Dela Cruz", email: "adviser@qcu.edu.ph", password: "adviser123", role: "adviser", initials: "JD", title: "OJT Adviser" },
+  { name: "Juan Dela Cruz", email: "adviser@qcu.edu.ph", password: "adviser123", role: "adviser", initials: "JD", title: "OJT Adviser" },
   { name: "SPARDS Office", email: "spards@qcu.edu.ph", password: "spards123", role: "spards", initials: "SP", title: "Document reviewer" }
 ];
 
@@ -372,6 +374,14 @@ function updateProfile() {
   if (topbarName) topbarName.textContent = account.name || profile.name;
   const topbarRole = document.getElementById("topbar-role");
   if (topbarRole) topbarRole.textContent = state.role === "student" ? "Student" : (account.title || profile.title);
+  const sidebarName = document.getElementById("sidebar-profile-name");
+  if (sidebarName) sidebarName.textContent = account.name || profile.name;
+  const sidebarRole = document.getElementById("sidebar-profile-role");
+  if (sidebarRole) sidebarRole.textContent = state.role === "student" ? "Student" : (account.title || profile.title);
+  const sidebarInitials = document.getElementById("sidebar-avatar-initials");
+  if (sidebarInitials) sidebarInitials.textContent = account.initials || profile.initials;
+  const sidebarProfileSection = document.getElementById("sidebar-profile-section");
+  if (sidebarProfileSection) sidebarProfileSection.hidden = state.role === "adviser";
   const topbarAvatar = document.getElementById("topbar-avatar");
   let profilePhoto = "";
   if (state.role === "student") {
@@ -455,6 +465,7 @@ function renderPage() {
   const labels = {
     "student-dashboard": "Dashboard",
     "adviser-dashboard": "Dashboard",
+    "adviser-profile": "Adviser Profile",
     "spards-dashboard": "Dashboard",
     "ojt-hours": "OJT Hours Log",
     "requirements-progress": "Requirements Progress",
@@ -478,12 +489,23 @@ function renderPage() {
       reflection: "Reflection",
       "student-profile": "OJT Student Profile"
     },
-    adviser: { "adviser-dashboard": "OJT Adviser Dashboard", review: "Review Submissions" },
+    adviser: {
+      "adviser-dashboard": "OJT Adviser Dashboard",
+      sections: "Sections",
+      "monitoring-overview": "Monitoring Overview",
+      report: "Report",
+      "adviser-profile": "OJT Adviser Profile",
+      review: "Review Submissions"
+    },
     spards: { "spards-dashboard": "SPARDS Dashboard", documents: "Document Review" }
   };
   const views = {
     "student-dashboard": StudentDashboard,
     "adviser-dashboard": RoleDashboard,
+    "adviser-profile": AdviserProfile,
+    sections: AdviserSection,
+    "monitoring-overview": RoleDashboard,
+    report: RoleDashboard,
     "spards-dashboard": RoleDashboard,
     documents: DocumentsView,
     review: ReviewView

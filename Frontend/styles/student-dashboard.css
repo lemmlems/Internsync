@@ -1,4 +1,363 @@
 /* Student dashboard and shell styles are implemented with Tailwind utilities. */
+.adviser-dashboard {
+  max-width: 1180px;
+  margin: 0 auto;
+  color: #172243;
+}
+
+.adviser-banner {
+  min-height: 112px;
+  overflow: hidden;
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(43, 56, 91, .34), rgba(43, 56, 91, .08)),
+    url("/QCU_Background.jpg") center 43% / cover;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(20, 35, 75, .08);
+}
+
+.adviser-banner > div {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 26px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+}
+
+.adviser-banner p {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #f5df28;
+}
+
+.adviser-banner h2 {
+  margin: 0;
+  font: 800 23px/1.15 "Manrope", sans-serif;
+}
+
+.adviser-banner span {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.adviser-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.adviser-stats article {
+  min-height: 86px;
+  padding: 10px 12px;
+  border-top-width: 3px;
+  border-radius: 10px;
+  border-color: #dfe5ef;
+  box-shadow: 0 2px 8px rgba(20, 35, 75, .04);
+}
+
+.adviser-stats article > div:first-child p {
+  font-size: 10px;
+}
+
+.adviser-stats article > div:nth-child(2) {
+  margin-top: 6px;
+  font-size: 17px;
+}
+
+.adviser-stats article > div:nth-child(3) {
+  margin-top: 4px;
+  font-size: 9px;
+}
+
+.adviser-overviews {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.adviser-chart-card {
+  min-height: 210px;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.adviser-chart-card header {
+  margin-bottom: 8px;
+}
+
+.adviser-chart-card header h2 {
+  font-size: 13px;
+}
+
+.adviser-bar-chart {
+  height: 150px;
+  display: flex;
+  align-items: end;
+  justify-content: space-around;
+  border-bottom: 1px solid #edf0f5;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 36px, #edf0f5 37px);
+}
+
+.adviser-bar-chart div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: center;
+  gap: 6px;
+}
+
+.adviser-bar-chart div span {
+  width: 23px;
+  min-height: 8px;
+  border-radius: 3px 3px 0 0;
+  background: #30398e;
+}
+
+.adviser-bar-chart div:nth-child(2) span { background: #f0b21b; }
+.adviser-bar-chart div:nth-child(3) span { background: #e8a923; }
+.adviser-bar-chart div:nth-child(4) span { background: #ed5c66; }
+.adviser-bar-chart small {
+  height: 18px;
+  color: #73809a;
+  font-size: 8px;
+}
+
+.adviser-donut-layout {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.adviser-donut {
+  width: 108px;
+  height: 108px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#30398e 0 40%, #f0b21b 40% 70%, #e7eaf1 70% 92%, #ed5c66 92% 100%);
+  position: relative;
+}
+
+.adviser-donut::after {
+  content: "";
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.adviser-donut span {
+  z-index: 1;
+  display: grid;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  color: #30398e;
+}
+
+.adviser-donut small {
+  margin-top: 2px;
+  color: #73809a;
+  font-size: 7px;
+  font-weight: 600;
+}
+
+.adviser-donut-layout ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #58657d;
+  font-size: 8px;
+}
+
+.adviser-donut-layout li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.adviser-donut-layout i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.adviser-donut--progress {
+  background: conic-gradient(#30398e 0 44%, #f0b21b 44% 73%, #e7eaf1 73% 91%, #ed5c66 91% 100%);
+}
+
+.adviser-table-card,
+.adviser-sections-card {
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.adviser-table-card header,
+.adviser-sections-card header {
+  margin-bottom: 8px;
+}
+
+.adviser-table-card header h2,
+.adviser-sections-card header h2 {
+  font-size: 13px;
+}
+
+.adviser-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  background: transparent;
+  color: #12177f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.adviser-table-wrap {
+  overflow-x: auto;
+}
+
+.adviser-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.adviser-table th {
+  height: 32px;
+  background: #f7f8fb;
+  color: #73809a;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid #edf0f5;
+  padding: 0 8px;
+}
+
+.adviser-table td {
+  height: 34px;
+  padding: 0 8px;
+  border-bottom: 1px solid #edf0f5;
+  color: #3e4a60;
+}
+
+.adviser-status {
+  display: inline-flex;
+  min-height: 18px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.adviser-status--ongoing {
+  background: #eaf7f0;
+  color: #159466;
+}
+
+.adviser-status--pending {
+  background: #fff1c9;
+  color: #9a6a00;
+}
+
+.adviser-review-button {
+  min-width: 48px;
+  border: 0;
+  border-radius: 5px;
+  background: #30398e;
+  color: #fff;
+  padding: 5px 8px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.adviser-section-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.adviser-section-grid article {
+  min-width: 140px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  padding: 9px;
+  background: #fff;
+}
+
+.adviser-section-grid h3 {
+  margin: 0 0 8px;
+  color: #30398e;
+  font-size: 10px;
+}
+
+.adviser-section-grid article > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  text-align: center;
+}
+
+.adviser-section-grid article > div span {
+  display: grid;
+  gap: 1px;
+}
+
+.adviser-section-grid strong {
+  font-size: 13px;
+  color: #30398e;
+}
+
+.adviser-section-grid small {
+  font-size: 7px;
+  color: #73809a;
+}
+
+.adviser-section-grid button {
+  width: 100%;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 5px;
+  background: #eef0f8;
+  color: #30398e;
+  padding: 5px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .adviser-stats,
+  .adviser-overviews {
+    grid-template-columns: 1fr;
+  }
+
+  .adviser-banner {
+    min-height: 96px;
+  }
+
+  .adviser-banner > div {
+    min-height: 96px;
+  }
+
+  .adviser-section-grid {
+    grid-template-columns: repeat(5, 150px);
+  }
+}
 .student-dashboard-home {
   color: #172243;
   font-family: var(--font-sans);
