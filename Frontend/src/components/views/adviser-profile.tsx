@@ -101,6 +101,7 @@ export default function AdviserProfile({ currentAccount }: AdviserProfileProps) 
   const [colleges, setColleges] = useState<College[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [saved, setSaved] = useState(() => readSavedProfile(initialStorageKey));
   const [draft, setDraft] = useState(() => makeDraft(saved, activeAccount));
   const [editing, setEditing] = useState(() => !saved.collegeId || !saved.programId);
@@ -132,7 +133,7 @@ export default function AdviserProfile({ currentAccount }: AdviserProfileProps) 
 
     void loadColleges();
     return () => controller.abort();
-  }, []);
+  }, [catalogAttempt]);
 
   const fullName = getFullName(draft);
   const selectedCollege = colleges.find((college) => college.id === draft.collegeId);
@@ -141,6 +142,12 @@ export default function AdviserProfile({ currentAccount }: AdviserProfileProps) 
   function cancelEditing() {
     setDraft(makeDraft(saved, activeAccount));
     setEditing(false);
+  }
+
+  function retryCatalogLoad() {
+    setCatalogError("");
+    setCatalogLoading(true);
+    setCatalogAttempt((attempt) => attempt + 1);
   }
 
   function persistProfile(nextDraft: AdviserProfileDraft) {
@@ -259,7 +266,14 @@ export default function AdviserProfile({ currentAccount }: AdviserProfileProps) 
                 onChange={(phone) => setDraft({ ...draft, phone })}
               />
             </div>
-            {catalogError && <p className="mt-2 text-xs text-[#b42335]" role="alert">{catalogError}</p>}
+            {catalogError && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-[#fff1f2] px-3 py-2 text-xs text-[#b42335]" role="alert">
+                <span>{catalogError}</span>
+                <button type="button" onClick={retryCatalogLoad} className="font-semibold underline underline-offset-2">
+                  Retry
+                </button>
+              </div>
+            )}
           </ProfileSection>
         </form>
       </div>
@@ -273,6 +287,14 @@ export default function AdviserProfile({ currentAccount }: AdviserProfileProps) 
         title="Personal Information"
         action={<button type="button" onClick={() => setEditing(true)} className="grid size-8 place-items-center rounded text-[#34425e] hover:bg-[#f1f4f9]" aria-label="Edit personal information" title="Edit personal information"><Pencil size={16} aria-hidden="true" /></button>}
       >
+        {catalogError && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-[#fff1f2] px-3 py-2 text-xs text-[#b42335]" role="alert">
+            <span>College and program options could not be loaded. Editing may be unavailable until the catalog is restored.</span>
+            <button type="button" onClick={retryCatalogLoad} className="font-semibold underline underline-offset-2">
+              Retry
+            </button>
+          </div>
+        )}
         <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <ProfileValue label="Full Name" value={fullName} />
           <ProfileValue label="College/Department" value={selectedCollege?.name || ""} />
