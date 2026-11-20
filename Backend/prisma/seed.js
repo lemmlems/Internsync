@@ -75,7 +75,7 @@ async function main() {
     });
 
     for (const [programIndex, program] of collegeData.programs.entries()) {
-      await prisma.program.upsert({
+      const savedProgram = await prisma.program.upsert({
         where: {
           collegeId_code: {
             collegeId: college.id,
@@ -90,6 +90,25 @@ async function main() {
           sortOrder: programIndex
         }
       });
+
+      for (let sectionIndex = 0; sectionIndex < 26; sectionIndex += 1) {
+        const letter = String.fromCharCode(65 + sectionIndex);
+        await prisma.section.upsert({
+          where: {
+            programId_yearLevel_letter: {
+              programId: savedProgram.id,
+              yearLevel: Number(ojtYearLevel === "THIRD" ? 3 : 4),
+              letter
+            }
+          },
+          update: {},
+          create: {
+            programId: savedProgram.id,
+            yearLevel: Number(ojtYearLevel === "THIRD" ? 3 : 4),
+            letter
+          }
+        });
+      }
     }
   }
 }

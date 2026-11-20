@@ -59,7 +59,19 @@ function getProfileReminder(): ProfileReminder | null {
 }
 
 export default function Topbar() {
-  const [account, setAccount] = useState({ initials: "", name: "", role: "", photo: "" });
+  const [account, setAccount] = useState(() => {
+    try {
+      const session = JSON.parse(sessionStorage.getItem("internsync-auth-session") || "null");
+      return {
+        initials: session?.initials || "",
+        name: session?.name || "",
+        role: session?.role === "student" ? "Student" : session?.title || "OJT Adviser",
+        photo: "",
+      };
+    } catch {
+      return { initials: "", name: "", role: "", photo: "" };
+    }
+  });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [avatarPhoto, setAvatarPhoto] = useState("");
   const [avatarInitials, setAvatarInitials] = useState("SR");
@@ -204,7 +216,7 @@ export default function Topbar() {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1 bg-[#e9edf4]" />
-            <DropdownMenuItem data-page="student-profile" className="cursor-pointer rounded-lg px-2.5 py-2 text-sm focus:bg-[#f1f3fa]">
+            <DropdownMenuItem data-page={account.role === "OJT Adviser" || account.role.includes("Adviser") ? "adviser-profile" : "student-profile"} className="cursor-pointer rounded-lg px-2.5 py-2 text-sm focus:bg-[#f1f3fa]">
               <UserRound size={15} aria-hidden="true" />
               My Profile
             </DropdownMenuItem>

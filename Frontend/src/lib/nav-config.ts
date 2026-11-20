@@ -27,7 +27,9 @@ export const NAV_ITEMS_BY_ROLE: Record<AppRole, NavItem[]> = {
   ],
   adviser: [
     { page: "adviser-dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { page: "review", label: "Review submissions", icon: ClipboardList },
+    { page: "sections", label: "Section", icon: Users },
+    { page: "monitoring-overview", label: "Monitoring Overview", icon: ClipboardList },
+    { page: "report", label: "Report", icon: Files },
   ],
   spards: [
     { page: "spards-dashboard", label: "Dashboard", icon: LayoutDashboard },

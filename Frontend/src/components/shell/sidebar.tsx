@@ -12,11 +12,23 @@ const navItems = [
 
 export default function Sidebar() {
   const [activeItem, setActiveItem] = useState("Dashboard");
+  const sessionValue = typeof sessionStorage === "undefined" ? null : sessionStorage.getItem("internsync-auth-session");
+  let session: any = null;
+  try {
+    session = sessionValue ? JSON.parse(sessionValue) : null;
+  } catch {
+    session = null;
+  }
+  const isAdviser = session?.role === "adviser";
+  const profileName = session?.name || (isAdviser ? "Juan Dela Cruz" : "Sofia Reyes");
+  const profileInitials = session?.initials || (isAdviser ? "JD" : "SR");
+  const profileRole = isAdviser ? "OJT Adviser" : session?.role === "spards" ? "SPARDS" : "Student";
 
   return (
     <aside
-      className="fixed inset-y-0 left-0 z-40 [transform:translateX(-100%)] flex w-[250px] flex-col overflow-y-auto bg-[#11177f] text-white shadow-[0_0_20px_rgba(15,28,109,0.15)] [&.open]:[transform:translateX(0)] transition-none lg:[transform:translateX(0)]"
+      className="fixed inset-y-0 left-0 z-40 [transform:translateX(-100%)] flex w-[250px] flex-col overflow-y-auto bg-[#11177f] text-white shadow-[0_0_20px_rgba(15,28,109,0.15)] [&.open]:[transform:translateX(0)] transition-transform duration-200 lg:[transform:translateX(0)]"
       id="sidebar"
+      aria-hidden="true"
     >
       <img
         className="pointer-events-none absolute bottom-16 right-[-48px] z-0 size-[200px] opacity-[0.06]"
@@ -70,14 +82,14 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="sidebar-bottom mt-auto pt-6">
+        <div className="sidebar-bottom mt-auto pt-6" id="sidebar-profile-section">
           <div className="profile-card flex w-full items-center gap-3 border-0 bg-transparent px-1 py-3 text-left text-white">
             <span className="avatar avatar-navy grid size-8 shrink-0 place-items-center rounded-full bg-white/15 text-[11px] font-bold text-white" aria-hidden="true">
-              PJ
+              <span id="sidebar-avatar-initials">{profileInitials}</span>
             </span>
             <span className="profile-copy grid min-w-0 flex-1 gap-0.5">
-              <strong className="truncate text-sm">Prof. Juan DelaCruz</strong>
-              <small className="truncate text-[10px] text-white/65">OJT Adviser</small>
+              <strong className="truncate text-sm" id="sidebar-profile-name">{profileName}</strong>
+              <small className="truncate text-[10px] text-white/65" id="sidebar-profile-role">{profileRole}</small>
             </span>
           </div>
         </div>
