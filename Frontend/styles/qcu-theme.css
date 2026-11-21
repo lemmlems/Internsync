@@ -530,7 +530,7 @@ td strong { color: #24365d; font-size: 11px; }
 }
 .auth-form {
   --auth-card-bg: #11177e;
-  width: 440px;
+  width: 390px;
   max-width: 100%;
   height: auto;
   max-height: none;
@@ -545,7 +545,7 @@ td strong { color: #24365d; font-size: 11px; }
 .auth-form#login-form::before { display: none; }
 .login-card-top {
   position: relative;
-  height: 168px;
+  height: 145px;
   background: #e2e4e8;
 }
 .login-card-top::before {
@@ -571,13 +571,13 @@ td strong { color: #24365d; font-size: 11px; }
   position: absolute;
   z-index: 3;
   left: 50%;
-  bottom: 8px;
-  height: 145px;
+  bottom: 4px;
+  height: 120px;
   margin: 0;
   transform: translateX(-50%);
 }
-.auth-crest { width: 145px; height: 145px; }
-.auth-form#login-form .auth-crest img { width: 145px; height: auto; }
+.auth-crest { width: 120px; height: 120px; }
+.auth-form#login-form .auth-crest img { width: 120px; height: auto; }
 .login-card-divider {
   position: relative;
   z-index: 2;
@@ -593,7 +593,7 @@ td strong { color: #24365d; font-size: 11px; }
 .login-card-bottom {
   height: auto;
   margin: 0;
-  padding: 14px 34px 40px;
+  padding: 10px 32px 24px;
   background: #0a1172;
 }
 .auth-field, .student-id-box { gap: 4px; margin: 0 0 12px; }
@@ -682,12 +682,16 @@ td strong { color: #24365d; font-size: 11px; }
 .auth-form#signup-form .auth-switch-text { margin: 6px 0 0; font-size: 10px; }
 .auth-form#login-form { height: auto; min-height: 0; }
 .auth-form#signup-form {
-  width: 440px;
-  padding: 24px 32px 32px;
+  width: 390px;
+  max-height: calc(100vh - 32px);
+  padding: 16px 24px 20px;
+  overflow-y: auto;
   border: 0;
-  border-radius: 28px;
+  border-radius: 24px;
   background: #0a1172;
   color: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: #7d86c9 transparent;
 }
 .auth-form#signup-form h2 { margin: 0 0 2px; color: #fff; font-size: 20px; line-height: 1.2; font-weight: 800; }
 .auth-form#signup-form .signup-subtitle {
@@ -697,16 +701,19 @@ td strong { color: #24365d; font-size: 11px; }
   line-height: 1.35;
 }
 .auth-form#signup-form .role-selector {
-  max-width: 296px;
-  gap: 8px;
-  margin: 16px auto;
+  max-width: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px auto;
 }
 .auth-form#signup-form .role-card {
-  min-height: 40px;
+  min-height: 38px;
   border-color: #3a459f;
   border-radius: 7px;
   color: #fff;
-  font-size: 12px;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
   font-weight: 500;
 }
 .auth-form#signup-form .role-card.active {
@@ -717,7 +724,7 @@ td strong { color: #24365d; font-size: 11px; }
 .auth-form#signup-form .student-id-box,
 .auth-form#signup-form .auth-field {
   gap: 4px;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 .auth-form#signup-form .student-id-box label,
 .auth-form#signup-form .auth-field label {
@@ -729,11 +736,11 @@ td strong { color: #24365d; font-size: 11px; }
 }
 .auth-form#signup-form .student-id-box input,
 .auth-form#signup-form .auth-field input {
-  height: 36px;
-  padding: 0 12px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #d6d8e2;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
 }
 .auth-form#signup-form .signup-name-fields {
   display: grid;
@@ -860,9 +867,9 @@ td strong { color: #24365d; font-size: 11px; }
 @media (max-height: 700px) {
   .auth-form { padding-top: 10px; padding-bottom: 10px; }
   .auth-form#login-form { min-height: 0; padding: 0; }
-  .auth-form#login-form .auth-crest-wrap { height: 145px; margin-bottom: 0; }
-  .auth-form#login-form .auth-crest { width: 145px; height: 145px; }
-  .auth-form#login-form .auth-crest img { width: 145px; height: auto; }
+  .auth-form#login-form .auth-crest-wrap { height: 120px; margin-bottom: 0; }
+  .auth-form#login-form .auth-crest { width: 120px; height: 120px; }
+  .auth-form#login-form .auth-crest img { width: 120px; height: auto; }
   .auth-form#login-form .auth-field { margin-top: 7px; }
   .auth-form#login-form .auth-field input { height: 32px; }
   .auth-form#login-form .auth-switch-text { margin-top: 10px; }
